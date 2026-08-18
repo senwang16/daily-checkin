@@ -12,7 +12,6 @@ const (
 	ugHost      = "https://api.trae.cn"
 	epStatus    = "/trae/api/v2/ug/checkin_credits/status"
 	epClaim     = "/trae/api/v2/ug/checkin_credits/claim"
-	ahaDeviceID = "1927881068695851" // 兜底指纹；优先用本机日志提取的真 aha ID
 	osVersion   = "10.0.26200"
 	appVersion  = "0.1.50"
 )
@@ -47,13 +46,14 @@ func (Trae) Checkin() *internal.CheckinError {
 	if err != nil {
 		return internal.NewCheckinError(internal.E001CredNotFound, "Trae", err.Error())
 	}
-	// 设备指纹：优先本机日志提取的真实 aha ID
+	// 设备指纹：优先本机日志提取的真实 aha ID（绝不写死兜底，避免共享指纹触发 9074）
 	devID := auth.DeviceID
 	if realID, e := extract.FindAhaDeviceID(); e == nil && realID != "" {
 		devID = realID
 	}
 	if devID == "" {
-		devID = ahaDeviceID
+		return internal.NewCheckinError(internal.E001CredNotFound, "Trae",
+			"未找到本机 aha 设备指纹，请确认已安装并登录 Trae 桌面端（或手动设置 TRAE_AHA_ID 环境变量）")
 	}
 	// token 续期
 	if auth.NeedRefresh() {

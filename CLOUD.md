@@ -11,14 +11,16 @@
 
 - **WorkBuddy 云端：安全可用。** 只需 `WORKBUDDY_TOKEN`（桌面端明文 token），服务端只校验 token 有效，**不校验来源 IP/机器**。
 - **Trae 云端：尽力而为，可能触发 9074 风控。** Trae 的 `claim` 接口除校验 token 外，还会校验**设备指纹**。
-  我们已把本机真实 aha 设备 ID 作为 `TRAE_AHA_ID` 传入，比「随机 device」稳得多，
+  把本机提取到的真实 aha 设备 ID 作为 `TRAE_AHA_ID` 传入，比「随机 device」稳得多，
   但云端请求来自 GitHub 服务器 IP，Trae 仍可能判定为异常登录而返回 `9074 操作太过频繁`。
   - 若只想 100% 稳，云端只勾选 `workbuddy` 即可（Trae 留本机 exe 跑）。
   - 若云端 Trae 被 9074，按下方「续期/重提取」重新导出 Secrets 即可，不会封号。
 - **token 续期**：Trae `refresh_token` 约 180 天、每天跑会被自动续期并回写本机；
   但**云端读取的是 Secrets 里的快照**，不会自动更新。WorkBuddy token 也会随桌面端过期。
   所以建议：**每隔一两个月重新 `export` 一次、更新 Secrets**（或本机 exe 跑着顺带续，但云端不共享）。
-- **Secrets 安全**：任何有仓库写入权限的人都能读到你的 token。仓库务必 **Private（私有）**。
+- **Secrets 安全**：任何有仓库**写入权限**的人都能读到你的 token。
+  本仓库**源码可公开**（里面不含任何 token/secret，设备指纹也是运行时从本机提取）；
+  但如果你用云端模式**跑自己的 token**，该运行仓库建议设为 **Private（私有）**，避免协作者看到。
 
 ---
 
@@ -34,12 +36,12 @@ daily-checkin.exe export
 
 ```
 WORKBUDDY_TOKEN=eyJhbGci...xxxxxxxx
-TRAE_AHA_ID=1927881068695851
+TRAE_AHA_ID=<你的aha设备ID，例如 1234567890123456>
 TRAE_AUTH_JSON={
   "access_token": "xxx",
   "refresh_token": "xxx",
   "uid": "xxx",
-  "device_id": "1927881068695851",
+  "device_id": "<你的aha设备ID>",
   ...
 }
 CHECKIN_PLATFORMS=trae,workbuddy
@@ -58,7 +60,7 @@ CHECKIN_PLATFORMS=trae,workbuddy
 
 1. 打开 https://github.com/new
    - Repository name：`daily-checkin`
-   - **Visibility 选 Private（私有）** ⚠️
+   - **只跑云端 token 的话建议选 Private（私有）**；若仅分享源码、不存 secret，Public 也可
    - 不用勾 Initialize（我们本地推）
 2. 进入仓库 `Settings → Secrets and variables → Actions → New repository secret`，逐个新建：
 

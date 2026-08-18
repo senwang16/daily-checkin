@@ -1,6 +1,7 @@
 # 编译产物
 *.exe
 *.exe~
+*.exe.old
 /daily-checkin.exe
 
 # 本机凭据与日志（绝不提交）
