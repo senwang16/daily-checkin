@@ -50,5 +50,5 @@ func ExportSecrets() {
 
 	fmt.Println("CHECKIN_PLATFORMS=trae,workbuddy")
 	fmt.Println()
-	fmt.Println("# ===== 使用说明见 CLOUD.md =====")
+	fmt.Println("# ===== 云端模式另见独立项目（本仓库已不含云端功能） =====")
 }

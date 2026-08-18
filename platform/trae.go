@@ -71,6 +71,9 @@ func (Trae) Checkin() *internal.CheckinError {
 		if code == 401 {
 			return internal.NewCheckinError(internal.E002TokenExpired, "Trae", "token 失效")
 		}
+		if code == 429 {
+			return internal.NewCheckinError(internal.E007RateLimited, "Trae", "请求过于频繁(429)")
+		}
 		return internal.NewCheckinError(internal.E004Network, "Trae", e.Error())
 	}
 	checked, _ := resp["checked_in"].(bool)
@@ -85,6 +88,9 @@ func (Trae) Checkin() *internal.CheckinError {
 	if e != nil {
 		if code == 401 {
 			return internal.NewCheckinError(internal.E002TokenExpired, "Trae", "token 失效")
+		}
+		if code == 429 {
+			return internal.NewCheckinError(internal.E007RateLimited, "Trae", "请求过于频繁(429)")
 		}
 		return internal.NewCheckinError(internal.E004Network, "Trae", e.Error())
 	}

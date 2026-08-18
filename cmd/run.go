@@ -133,10 +133,11 @@ func Status() {
 
 // Uninstall 卸载
 func Uninstall() {
-	_ = scheduler.Remove()
+	if err := scheduler.Remove(); err != nil {
+		fmt.Println("清理计划任务/自启失败：" + err.Error())
+	}
 	if err := store.RemoveConfig(); err != nil {
 		fmt.Println("移除配置失败：" + err.Error())
-	} else {
-		fmt.Println("已卸载自动签到（计划任务/自启已清理）。")
 	}
+	fmt.Println("已卸载自动签到（计划任务/自启已清理）。")
 }

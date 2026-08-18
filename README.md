@@ -80,7 +80,7 @@ daily-checkin.exe install --platforms=trae,workbuddy --time=10:00
 
 **双击 exe 黑框一闪而过？**
 - 正常现象：本程序默认是命令行交互向导，双击后会**停留**在黑框里等你输入时间/平台。
-- 如果确实闪退，查看日志 `%LOCALAPPDATA%\daily-checkin\checkin.log` 或 `%LOCALAPPDATA%\daily-checkin\gui_error.log`。
+- 如果确实闪退，查看日志 `%LOCALAPPDATA%\daily-checkin\checkin.log`。
 - 备用方案：双击 `配置.bat`，效果相同。
 
 ## 错误码
@@ -93,6 +93,7 @@ daily-checkin.exe install --platforms=trae,workbuddy --time=10:00
 | E004 | 网络错误 | 检查网络后重试 |
 | E005 | 业务未知错误 | 看通知里的服务端 message |
 | E006 | 计划任务注册失败 | 手动检查任务计划程序 |
+| E007 | 请求过于频繁(429) | 稍后再试 |
 
 ## 原理
 

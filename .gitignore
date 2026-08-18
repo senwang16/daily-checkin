@@ -13,6 +13,7 @@ auth.json
 # Go
 /vendor/
 .gocache/
+.git-rewrite/
 
 # 系统
 .DS_Store

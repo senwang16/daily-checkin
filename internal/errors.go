@@ -13,6 +13,7 @@ const (
 	E004Network      Code = 4 // 网络错误
 	E005BizError     Code = 5 // 业务未知错误
 	E006TaskRegister Code = 6 // 计划任务注册失败
+	E007RateLimited  Code = 7 // HTTP 429 限流
 )
 
 // CheckinError 统一错误结构
@@ -43,6 +44,8 @@ func (e *CheckinError) UserMessage() string {
 		return fmt.Sprintf("%s：签到返回未知错误 - %s", e.Platform, e.Message)
 	case E006TaskRegister:
 		return fmt.Sprintf("计划任务注册失败：%s", e.Message)
+	case E007RateLimited:
+		return fmt.Sprintf("%s：请求过于频繁(429)，请稍后再试", e.Platform)
 	default:
 		return fmt.Sprintf("%s：未知错误 - %s", e.Platform, e.Message)
 	}
