@@ -36,8 +36,8 @@ Windows 下 **Trae** 与 **WorkBuddy** 的每日自动签到工具。单文件 e
 5. 回车确认安装。此后每天到点自动签到，失败会弹通知
 
 > **提示**
-> - 双击 `daily-checkin.exe` 就是安装向导，直接在命令行里问答，适合想自定义的小白。
-> - 也可以双击同目录的 **`安装.bat`** 或 **`配置.bat`**，效果完全一样。
+> - 双击 `daily-checkin.exe` 就是安装/配置向导，直接在命令行里问答，既能首次安装也能改时间/平台。
+> - 也可以用同目录的 **`配置.bat`** 一键启动同一个向导（修改配置时双击它或 exe 都行，效果一样）。
 > - 完全不想交互、一键用默认（两平台 / 每天 09:30）安装：打开 `cmd` 执行 `daily-checkin.exe install`。
 > - 若 Windows 弹出 SmartScreen 安全提示（未签名程序的正常提示），点「更多信息」→「仍要运行」即可。
 
@@ -71,7 +71,7 @@ daily-checkin.exe install --platforms=trae,workbuddy --time=09:30
 **双击 exe 黑框一闪而过？**
 - 正常现象：本程序默认是命令行交互向导，双击后会**停留**在黑框里等你输入时间/平台。
 - 如果确实闪退，查看日志 `%LOCALAPPDATA%\daily-checkin\checkin.log` 或 `%LOCALAPPDATA%\daily-checkin\gui_error.log`。
-- 备用方案：双击 `安装.bat` 或 `配置.bat`，效果相同。
+- 备用方案：双击 `配置.bat`，效果相同。
 
 ## 错误码
 
