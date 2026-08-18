@@ -38,6 +38,7 @@ Windows 下 **Trae** 与 **WorkBuddy** 的每日自动签到工具。单文件 e
 > **提示**
 > - 双击 `daily-checkin.exe` 直接弹窗口（选平台 + 设时间 + 点安装），适合想自定义的小白。
 > - 完全不想看界面、一键用默认（两平台 / 每天 09:30）安装：双击同目录的 **`安装.bat`**。
+> - 若双击 `daily-checkin.exe` 报「TTM_ADDTOOL failed」等窗口错误：双击 **`配置.bat`**，用命令行向导选平台/时间即可，无需 GUI。
 > - 若 Windows 弹出 SmartScreen 安全提示（未签名程序的正常提示），点「更多信息」→「仍要运行」即可。
 
 ## 命令行
@@ -64,11 +65,16 @@ daily-checkin.exe install --platforms=trae,workbuddy --time=09:30
 
 ## 故障排查
 
-**双击 exe 一闪而过 / 看不到窗口？**
-1. 直接用命令行兜底：`daily-checkin.exe install`（无需 GUI）。
-2. 若仍想用 GUI，异常会被捕获并写入日志 `%LOCALAPPDATA%\daily-checkin\gui_error.log`，
-   同时弹出错误提示框。查看该日志可知具体原因（多为旧显卡驱动 / 主题组件导致 walk 窗口初始化失败，不影响命令行安装与签到）。
-3. 签到本身走计划任务调用 `run`，与 GUI 是否正常显示无关。
+**双击 exe 报「TTM_ADDTOOL failed」/ 一闪而过 / 看不到窗口？**
+
+这是 GUI 库在某些 Windows 环境初始化 ToolTip 控件失败，不影响签到功能。任选一种兜底方式：
+
+1. **最简单**：双击同目录的 **`配置.bat`** → 命令行里选时间、选平台，回车即可安装。
+2. **进阶**：打开 `cmd` 执行 `daily-checkin.exe install --platforms=trae,workbuddy --time=09:30`。
+3. 异常也会被捕获并写入日志 `%LOCALAPPDATA%\daily-checkin\gui_error.log`，同时弹出错误提示框。不影响命令行安装与计划任务自动签到。
+
+**双击 exe 被 SmartScreen 拦截？**
+- 点「更多信息」→「仍要运行」即可。本程序未签名，属正常提示。
 
 ## 错误码
 
