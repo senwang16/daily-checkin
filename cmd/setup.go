@@ -46,6 +46,7 @@ func Setup() bool {
 
 	fmt.Println()
 	fmt.Printf("即将安装：每天 %s 自动签到，平台：%s\n", t, strings.Join(plats, ", "))
+	fmt.Println("提示：若未「以管理员身份运行」，定时任务可能注册失败，将自动改用「开机自启」方式，功能不受影响。")
 	ok := Install(plats, t)
 	pause()
 	return ok

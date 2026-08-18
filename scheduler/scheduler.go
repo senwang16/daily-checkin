@@ -1,11 +1,13 @@
 package scheduler
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"daily-checkin/internal"
 	"golang.org/x/text/encoding/simplifiedchinese"
@@ -26,9 +28,16 @@ func decodeGBK(b []byte) string {
 	return string(decoded)
 }
 
+// runSchtasks 执行 schtasks。带 20s 超时：若任务计划程序服务响应慢/被拦，
+// 子进程会被强制结束，调用方据此降级，避免向导永久卡在「注册计划任务」这一步。
 func runSchtasks(args ...string) (string, error) {
-	cmd := exec.Command("schtasks", args...)
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "schtasks", args...)
 	out, err := cmd.CombinedOutput()
+	if ctx.Err() == context.DeadlineExceeded {
+		return decodeGBK(out), fmt.Errorf("schtasks 执行超时(可能 Task Scheduler 服务不可用或被拦截): %w", ctx.Err())
+	}
 	return decodeGBK(out), err
 }
 
@@ -47,9 +56,13 @@ func RegisterDaily(exe, t string, plats []string) error {
 		}
 		return nil
 	}
-	// 3) 登录触发（确保关机再开机后也能签到）
+	// 3) 登录触发（需管理员权限）。失败不阻断整体安装：自动改用 Startup 自启兜底，
+	// 同样能在「开机/登录后」补签，避免非管理员双击时整个安装被判失败。
 	if out, err := runSchtasks("/Create", "/TN", logonTaskName, "/TR", cmdLine, "/SC", "ONLOGON", "/F"); err != nil {
-		return fmt.Errorf("登录触发任务(DailyCheckin-Logon)注册失败: %v; schtasks输出: %s; 已注册每日定时任务但缺少登录兜底（可手动以管理员身份创建）", err, strings.TrimSpace(out))
+		if e := registerFallback(exe); e != nil {
+			return fmt.Errorf("登录触发任务(DailyCheckin-Logon)注册失败: %v; schtasks输出: %s; 已注册每日定时任务但缺少登录兜底（可手动以管理员身份创建）", err, strings.TrimSpace(out))
+		}
+		fmt.Println("⚠️ 登录触发任务需管理员权限，已自动改用「开机自启(Startup)」方式实现登录后自动补签，功能不受影响。")
 	}
 	return nil
 }
