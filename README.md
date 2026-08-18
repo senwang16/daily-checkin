@@ -42,8 +42,28 @@ daily-checkin.exe            # 打开安装向导（默认）
 daily-checkin.exe run        # 立即执行一次签到（计划任务每天调用）
 daily-checkin.exe run --daemon   # 常驻定时器模式（降级自启时使用）
 daily-checkin.exe status     # 查看安装与登录状态
+daily-checkin.exe install    # 命令行安装（无需 GUI，双击向导不可用时的兜底）
 daily-checkin.exe uninstall  # 卸载（清理计划任务/自启与配置）
 ```
+
+### 命令行安装（推荐，最稳）
+
+如果双击 exe 出现「一闪而过」（窗口没显示就退出），直接用命令行安装，效果与向导完全一致：
+
+```
+daily-checkin.exe install                              # 默认两平台全开，每天 09:30
+daily-checkin.exe install --platforms=trae,workbuddy --time=09:30
+```
+
+安装完成后会注册两个 Windows 计划任务（见下文「开机自启」）。
+
+## 故障排查
+
+**双击 exe 一闪而过 / 看不到窗口？**
+1. 直接用命令行兜底：`daily-checkin.exe install`（无需 GUI）。
+2. 若仍想用 GUI，异常会被捕获并写入日志 `%LOCALAPPDATA%\daily-checkin\gui_error.log`，
+   同时弹出错误提示框。查看该日志可知具体原因（多为旧显卡驱动 / 主题组件导致 walk 窗口初始化失败，不影响命令行安装与签到）。
+3. 签到本身走计划任务调用 `run`，与 GUI 是否正常显示无关。
 
 ## 错误码
 

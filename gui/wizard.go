@@ -3,7 +3,9 @@ package gui
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
+	"time"
 
 	"daily-checkin/platform"
 	"daily-checkin/scheduler"
@@ -11,10 +13,33 @@ import (
 	"github.com/lxn/walk"
 )
 
+func guiLogPath() string {
+	return filepath.Join(os.Getenv("LOCALAPPDATA"), "daily-checkin", "gui_error.log")
+}
+
+func logGuiError(msg string) {
+	_ = os.MkdirAll(filepath.Dir(guiLogPath()), 0o755)
+	f, err := os.OpenFile(guiLogPath(), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	if err == nil {
+		_, _ = f.WriteString(time.Now().Format("2006-01-02 15:04:05") + " " + msg + "\n")
+		f.Close()
+	}
+}
+
 // Run 打开安装向导（双击 exe 默认进入）
 func Run() {
+	defer func() {
+		if r := recover(); r != nil {
+			msg := fmt.Sprintf("GUI 启动异常: %v", r)
+			logGuiError(msg)
+			walk.MsgBox(nil, "每日签到 · 错误", msg+"\n\n详细日志见: "+guiLogPath(), walk.MsgBoxOK|walk.MsgBoxIconError)
+		}
+	}()
 	mw, err := walk.NewMainWindow()
 	if err != nil {
+		msg := "无法创建主窗口: " + err.Error()
+		logGuiError(msg)
+		walk.MsgBox(nil, "每日签到 · 错误", msg, walk.MsgBoxOK|walk.MsgBoxIconError)
 		return
 	}
 	mw.SetTitle("每日签到 · 安装向导")
@@ -73,6 +98,7 @@ func Run() {
 		statusLbl.SetText(fmt.Sprintf("✅ 安装成功！已设置为每天 %s 自动签到。", t))
 	})
 
+	mw.Show()
 	mw.Run()
 }
 
