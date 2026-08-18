@@ -5,13 +5,15 @@ import (
 	"strings"
 
 	"daily-checkin/cmd"
-	"daily-checkin/gui"
 )
 
 func main() {
 	args := os.Args[1:]
 	if len(args) == 0 {
-		gui.Run()
+		// 双击 exe 默认进入交互式命令行安装向导（不依赖 GUI 库）
+		if !cmd.Setup() {
+			os.Exit(1)
+		}
 		return
 	}
 	switch args[0] {
@@ -38,7 +40,10 @@ func main() {
 	case "uninstall":
 		cmd.Uninstall()
 	default:
-		gui.Run()
+		// 未知子命令也进入交互式向导
+		if !cmd.Setup() {
+			os.Exit(1)
+		}
 	}
 }
 
