@@ -1,24 +1,25 @@
 @echo off
-chcp 65001 >nul 2>nul
-title æ¯æ—¥ç­¾åˆ° Â· é…ç½®å‘å¯¼
+title Ã¿ÈÕÇ©µ½ - ÅäÖÃÏòµ¼
 
 echo ===================================
-echo   æ¯æ—¥ç­¾åˆ° Â· å‘½ä»¤è¡Œé…ç½®å‘å¯¼
-echo   è‹¥åŒå‡» daily-checkin.exe æŠ¥é”™ï¼Œå¯ç”¨æœ¬è„šæœ¬å…œåº•
+echo   Ã¿ÈÕÇ©µ½ - ÃüÁîĞĞÅäÖÃÏòµ¼
+echo   ÈôË«»÷ daily-checkin.exe ±¨´í£¬¿ÉÓÃ±¾½Å±¾¶µµ×
 echo ===================================
 echo.
 
 set "time=09:30"
-set /p time="è¯·è¾“å…¥æ¯å¤©ç­¾åˆ°æ—¶é—´ï¼ˆHH:MMï¼Œå›è½¦é»˜è®¤ 09:30ï¼‰ï¼š"
+set /p time="ÇëÊäÈëÃ¿ÌìÇ©µ½Ê±¼ä£¨HH:MM£¬»Ø³µÄ¬ÈÏ 09:30£©£º"
 if "%time%"=="" set "time=09:30"
 
 echo.
-echo è¯·é€‰æ‹©è¦ç­¾åˆ°çš„å¹³å°ï¼ˆy=æ˜¯ï¼Œn=å¦ï¼‰ï¼š
-choice /C YN /M "æ˜¯å¦å¯ç”¨ Traeï¼ˆæ¯æ—¥ +200 ç§¯åˆ†ï¼‰"
-if %errorlevel%==1 set "trae=yes" else set "trae=no"
+echo ÇëÑ¡ÔñÒªÇ©µ½µÄÆ½Ì¨£¨Y=ÊÇ£¬N=·ñ£©£º
+choice /C YN /M "ÊÇ·ñÆôÓÃ Trae£¨Ã¿ÈÕ +200 »ı·Ö£©"
+if %errorlevel%==1 set "trae=yes"
+if %errorlevel%==2 set "trae=no"
 
-choice /C YN /M "æ˜¯å¦å¯ç”¨ WorkBuddyï¼ˆæ¯æ—¥ +100 ç§¯åˆ†ï¼‰"
-if %errorlevel%==1 set "wb=yes" else set "wb=no"
+choice /C YN /M "ÊÇ·ñÆôÓÃ WorkBuddy£¨Ã¿ÈÕ +100 »ı·Ö£©"
+if %errorlevel%==1 set "wb=yes"
+if %errorlevel%==2 set "wb=no"
 
 set "platforms="
 if "%trae%"=="yes" set "platforms=trae"
@@ -31,14 +32,14 @@ if "%wb%"=="yes" (
 )
 
 if "%platforms%"=="" (
-  echo é”™è¯¯ï¼šè‡³å°‘é€‰æ‹©ä¸€ä¸ªå¹³å°
-echo é…ç½®æœªå®Œæˆã€‚
+  echo ´íÎó£ºÖÁÉÙÑ¡ÔñÒ»¸öÆ½Ì¨
+echo ÅäÖÃÎ´Íê³É¡£
 pause
 exit /b 1
 )
 
 echo.
-echo å³å°†å®‰è£…ï¼šæ¯å¤© %time% è‡ªåŠ¨ç­¾åˆ°ï¼Œå¹³å°ï¼š%platforms%
+echo ¼´½«°²×°£ºÃ¿Ìì %time% ×Ô¶¯Ç©µ½£¬Æ½Ì¨£º%platforms%
 daily-checkin.exe install --time=%time% --platforms=%platforms%
 echo.
 pause
