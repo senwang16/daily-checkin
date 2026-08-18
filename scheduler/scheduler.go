@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"daily-checkin/internal"
+	"golang.org/x/text/encoding/simplifiedchinese"
 )
 
 const (
@@ -15,10 +16,20 @@ const (
 	logonTaskName = "DailyCheckin-Logon" // 登录触发任务（覆盖关机再开机场景）
 )
 
+// decodeGBK 将 schtasks 在中文 Windows 上输出的 GBK 字节解码为 UTF-8 字符串，
+// 避免错误信息出现乱码（如「����: �ܾ����ʡ�」）。纯 ASCII / 已为 UTF-8 的内容亦无损。
+func decodeGBK(b []byte) string {
+	decoded, err := simplifiedchinese.GBK.NewDecoder().Bytes(b)
+	if err != nil {
+		return string(b)
+	}
+	return string(decoded)
+}
+
 func runSchtasks(args ...string) (string, error) {
 	cmd := exec.Command("schtasks", args...)
 	out, err := cmd.CombinedOutput()
-	return string(out), err
+	return decodeGBK(out), err
 }
 
 // RegisterDaily 注册自动签到。
