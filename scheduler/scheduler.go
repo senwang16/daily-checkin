@@ -36,7 +36,9 @@ func RegisterDaily(exe, t string, plats []string) error {
 		return nil
 	}
 	// 3) 登录触发（确保关机再开机后也能签到）
-	_, _ = runSchtasks("/Create", "/TN", logonTaskName, "/TR", cmdLine, "/SC", "ONLOGON", "/F")
+	if _, err := runSchtasks("/Create", "/TN", logonTaskName, "/TR", cmdLine, "/SC", "ONLOGON", "/F"); err != nil {
+		return fmt.Errorf("登录触发任务(DailyCheckin-Logon)注册失败: %v; 已注册每日定时任务但缺少登录兜底", err)
+	}
 	return nil
 }
 

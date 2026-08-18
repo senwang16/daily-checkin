@@ -65,6 +65,15 @@ daily-checkin.exe install --platforms=trae,workbuddy --time=09:30
 
 ## 故障排查
 
+**安装后任务计划程序里只看到 `DailyCheckin`，没有 `DailyCheckin-Logon`？**
+- 这是旧版安装或登录触发任务注册失败的迹象。新版安装应同时创建两个任务。
+- 修复：用新版 exe 重新运行安装向导（双击 `daily-checkin.exe` 或 `配置.bat`），如果提示「登录触发任务注册失败」请把错误信息发给我。
+- 手动补齐登录触发任务（以管理员身份运行 cmd，复制粘贴）：
+  ```bat
+  schtasks /Create /TN "DailyCheckin-Logon" /TR "\"C:\Users\wangtong\WorkBuddy\2026-08-14-14-24-31\daily-checkin\daily-checkin.exe\" run" /SC ONLOGON /RL HIGHEST /F
+  ```
+  然后刷新任务计划程序，确认出现 `DailyCheckin-Logon`。
+
 **双击 exe 被 SmartScreen 拦截？**
 - 点「更多信息」→「仍要运行」即可。本程序未签名，属正常提示。
 
