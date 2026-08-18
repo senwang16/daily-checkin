@@ -13,6 +13,14 @@ import (
 // Install 命令行安装（GUI 不可用时的兜底方式）。
 // platforms 形如 []string{"trae","workbuddy"}；为空则默认两平台全开。
 func Install(platforms []string, t string) bool {
+	// 清理前后空格（兼容命令行/bat 输入，如 "trae, workbuddy"）
+	clean := platforms[:0]
+	for _, p := range platforms {
+		if p = strings.TrimSpace(p); p != "" {
+			clean = append(clean, p)
+		}
+	}
+	platforms = clean
 	if len(platforms) == 0 {
 		platforms = []string{"trae", "workbuddy"}
 	}
@@ -34,9 +42,6 @@ func Install(platforms []string, t string) bool {
 	}
 	fmt.Printf("✅ 安装成功！已设置为每天 %s 自动签到，平台: %s\n", t, strings.Join(platforms, ", "))
 	fmt.Println("已注册 [每日定时] + [登录触发] 两个计划任务；每天关机再开机、登录后自动补签。")
-	if len(platforms) == 0 {
-		platforms = []string{"trae", "workbuddy"}
-	}
 	return true
 }
 

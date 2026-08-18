@@ -11,6 +11,7 @@ auth.json
 
 # Go
 /vendor/
+.gocache/
 
 # 系统
 .DS_Store
