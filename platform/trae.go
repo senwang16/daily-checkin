@@ -55,8 +55,8 @@ func (Trae) Checkin() *internal.CheckinError {
 		return internal.NewCheckinError(internal.E001CredNotFound, "Trae",
 			"未找到本机 aha 设备指纹，请确认已安装并登录 Trae 桌面端（或手动设置 TRAE_AHA_ID 环境变量）")
 	}
-	// token 续期
-	if auth.NeedRefresh() {
+	// token 续期（云端环境变量注入的凭据无法回写，跳过续期避免作废旧 refresh_token）
+	if !auth.FromEnv && auth.NeedRefresh() {
 		if re := auth.Refresh(); re != nil {
 			store.AppendLog("[WARN] Trae token 刷新失败: " + re.Error())
 		} else {
@@ -68,10 +68,10 @@ func (Trae) Checkin() *internal.CheckinError {
 	// 1. 查状态
 	code, resp, e := client.PostJSON(ugHost+epStatus, h, map[string]interface{}{})
 	if e != nil {
+		if code == 401 {
+			return internal.NewCheckinError(internal.E002TokenExpired, "Trae", "token 失效")
+		}
 		return internal.NewCheckinError(internal.E004Network, "Trae", e.Error())
-	}
-	if code == 401 {
-		return internal.NewCheckinError(internal.E002TokenExpired, "Trae", "token 失效")
 	}
 	checked, _ := resp["checked_in"].(bool)
 	if checked {
@@ -83,13 +83,17 @@ func (Trae) Checkin() *internal.CheckinError {
 	// 2. claim（带重试）
 	code, resp, e = client.PostJSONRetry(ugHost+epClaim, h, map[string]interface{}{}, 2)
 	if e != nil {
+		if code == 401 {
+			return internal.NewCheckinError(internal.E002TokenExpired, "Trae", "token 失效")
+		}
 		return internal.NewCheckinError(internal.E004Network, "Trae", e.Error())
-	}
-	if code == 401 {
-		return internal.NewCheckinError(internal.E002TokenExpired, "Trae", "token 失效")
 	}
 	rc := int(toFloat(resp["code"]))
 	if rc == 0 {
+		return nil
+	}
+	// 幂等：claim 返回已签到同样视为成功
+	if checked, _ := resp["checked_in"].(bool); checked {
 		return nil
 	}
 	if rc == 9074 {

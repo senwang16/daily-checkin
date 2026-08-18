@@ -32,18 +32,18 @@ func (WorkBuddy) Checkin() *internal.CheckinError {
 	client := internal.NewHTTPClient()
 	code, resp, e := client.PostJSONRetry(wbHost, headers, map[string]interface{}{}, 2)
 	if e != nil {
+		if code == 401 {
+			return internal.NewCheckinError(internal.E002TokenExpired, "WorkBuddy", "token 失效")
+		}
 		return internal.NewCheckinError(internal.E004Network, "WorkBuddy", e.Error())
-	}
-	if code == 401 {
-		return internal.NewCheckinError(internal.E002TokenExpired, "WorkBuddy", "token 失效")
 	}
 	rc := int(toFloat(resp["code"]))
 	if rc == 0 {
 		return nil
 	}
 	msg := bizMsg(resp)
-	// 幂等：今天已签到视为成功（接口会返回非 0 业务码 + 提示文案）
-	if strings.Contains(msg, "已签到") || strings.Contains(msg, "今天") || strings.Contains(msg, "明天") {
+	// 幂等：今天已签到视为成功（接口返回非 0 业务码 + 「已签到」提示文案）
+	if strings.Contains(msg, "已签到") {
 		return nil
 	}
 	return internal.NewCheckinError(internal.E005BizError, "WorkBuddy", msg)

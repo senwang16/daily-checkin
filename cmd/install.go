@@ -31,13 +31,15 @@ func Install(platforms []string, t string) bool {
 		fmt.Println("时间格式错误，应为 HH:MM（如 09:30）")
 		return false
 	}
-	if err := store.SaveConfig(&store.Config{Time: t, Platforms: platforms}); err != nil {
-		fmt.Println("保存配置失败:", err)
-		return false
-	}
+	// 先注册计划任务，成功后再保存配置；配置保存失败时回滚任务，保证状态一致
 	exe, _ := os.Executable()
 	if err := scheduler.RegisterDaily(exe, t, platforms); err != nil {
 		fmt.Println("注册计划任务失败:", err)
+		return false
+	}
+	if err := store.SaveConfig(&store.Config{Time: t, Platforms: platforms}); err != nil {
+		fmt.Println("保存配置失败:", err)
+		_ = scheduler.Remove()
 		return false
 	}
 	fmt.Printf("✅ 安装成功！已设置为每天 %s 自动签到，平台: %s\n", t, strings.Join(platforms, ", "))

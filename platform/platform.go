@@ -18,17 +18,6 @@ func Register(p Platform) { registry[p.Name()] = p }
 // Get 按名称取平台
 func Get(name string) Platform { return registry[name] }
 
-// Enabled 按配置名称列表返回平台实例
-func Enabled(names []string) []Platform {
-	var ps []Platform
-	for _, n := range names {
-		if p, ok := registry[n]; ok {
-			ps = append(ps, p)
-		}
-	}
-	return ps
-}
-
 func init() {
 	Register(Trae{})
 	Register(WorkBuddy{})

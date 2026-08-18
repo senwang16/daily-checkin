@@ -28,10 +28,16 @@ type TraeAuth struct {
 	DeviceID     string `json:"device_id"`
 	ExpiresAt    int64  `json:"expires_at"`
 	CreatedAt    int64  `json:"created_at"`
+	// FromEnv 标记凭据来自环境变量（云端模式），刷新后无法回写，故跳过自动续期
+	FromEnv bool `json:"-"`
 }
 
-// NeedRefresh token 是否即将过期（提前 12 小时刷新）
+// NeedRefresh token 是否即将过期（提前 12 小时刷新）。
+// ExpiresAt 缺失（如环境变量单项注入）时不刷新，直接使用现有 token，避免发送注定失败的刷新请求。
 func (a *TraeAuth) NeedRefresh() bool {
+	if a.ExpiresAt <= 0 {
+		return false
+	}
 	return time.Now().Unix() > a.ExpiresAt-12*3600
 }
 
@@ -97,6 +103,7 @@ func LoadTraeAuth() (*TraeAuth, error) {
 	if j := os.Getenv("TRAE_AUTH_JSON"); j != "" {
 		var a TraeAuth
 		if json.Unmarshal([]byte(j), &a) == nil && a.AccessToken != "" {
+			a.FromEnv = true
 			return &a, nil
 		}
 	}
@@ -107,6 +114,7 @@ func LoadTraeAuth() (*TraeAuth, error) {
 			RefreshToken: os.Getenv("TRAE_REFRESH_TOKEN"),
 			UID:          os.Getenv("TRAE_UID"),
 			DeviceID:     os.Getenv("TRAE_DEVICE_ID"),
+			FromEnv:      true,
 		}, nil
 	}
 	// 3) 本机文件
@@ -140,6 +148,7 @@ func SaveTraeAuth(a *TraeAuth) error {
 
 // FindAhaDeviceID 从 Trae App 日志提取真实 aha 设备 ID（风控白名单指纹）
 // 来源：%APPDATA%/TRAE SOLO CN/logs/aha_electron_*.log。云端模式可用环境变量覆盖。
+// 仅匹配显式 device_id 字段，避免把日志里的时间戳/消息 ID 等长数字误当设备指纹。
 func FindAhaDeviceID() (string, error) {
 	if id := os.Getenv("TRAE_AHA_ID"); id != "" {
 		return id, nil
@@ -156,11 +165,6 @@ func FindAhaDeviceID() (string, error) {
 			continue
 		}
 		if m := re.FindSubmatch(data); m != nil {
-			return string(m[1]), nil
-		}
-		// 回退：纯数字长串（aha id 格式）
-		re2 := regexp.MustCompile(`\b(\d{15,20})\b`)
-		if m := re2.FindSubmatch(data); m != nil {
 			return string(m[1]), nil
 		}
 	}

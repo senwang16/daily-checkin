@@ -46,6 +46,10 @@ func runOnce() bool {
 		name = strings.TrimSpace(name)
 		p := platform.Get(name)
 		if p == nil {
+			line := "[FAIL] 未知平台: " + name + "（请检查配置中的平台名）"
+			store.AppendLog(line)
+			fmt.Println(line)
+			fails = append(fails, "未知平台: "+name)
 			continue
 		}
 		if e := p.Checkin(); e != nil {
@@ -82,16 +86,28 @@ func daemonLoop() {
 }
 
 func waitUntil(t string) {
-	now := time.Now()
-	var hh, mm int
-	if _, err := fmt.Sscanf(t, "%d:%d", &hh, &mm); err != nil {
-		hh, mm = 9, 30
+	for {
+		now := time.Now()
+		var hh, mm int
+		if _, err := fmt.Sscanf(t, "%d:%d", &hh, &mm); err != nil {
+			hh, mm = 9, 30
+		}
+		next := time.Date(now.Year(), now.Month(), now.Day(), hh, mm, 0, 0, now.Location())
+		if !next.After(now) {
+			next = next.Add(24 * time.Hour)
+		}
+		d := time.Until(next)
+		if d <= 0 {
+			return
+		}
+		// 分段睡眠：系统休眠唤醒后单调钟停滞，分段重算避免错过定时
+		if d > 30*time.Minute {
+			time.Sleep(30 * time.Minute)
+			continue
+		}
+		time.Sleep(d)
+		return
 	}
-	next := time.Date(now.Year(), now.Month(), now.Day(), hh, mm, 0, 0, now.Location())
-	if !next.After(now) {
-		next = next.Add(24 * time.Hour)
-	}
-	time.Sleep(time.Until(next))
 }
 
 // Status 打印当前安装与登录状态

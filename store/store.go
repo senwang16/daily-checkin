@@ -50,9 +50,15 @@ func RemoveConfig() error {
 	return err
 }
 
-// AppendLog 追加一行签到日志
+// maxLogSize 日志超过该大小后归档为 checkin.log.old
+const maxLogSize = 1 << 20 // 1MB
+
+// AppendLog 追加一行签到日志（超限自动轮转）
 func AppendLog(line string) {
 	_ = os.MkdirAll(dir(), 0o755)
+	if fi, err := os.Stat(LogPath()); err == nil && fi.Size() > maxLogSize {
+		_ = os.Rename(LogPath(), LogPath()+".old")
+	}
 	f, err := os.OpenFile(LogPath(), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
 	if err != nil {
 		return

@@ -49,17 +49,18 @@ func RegisterDaily(exe, t string, plats []string) error {
 	cmdLine := fmt.Sprintf("\"%s\" run", exe)
 	// 1) 每日定时
 	if _, err := runSchtasks("/Create", "/TN", taskName, "/TR", cmdLine, "/SC", "DAILY", "/ST", t, "/F"); err != nil {
-		// 2) 降级：写 Startup vbs 自启常驻进程（run --daemon）
-		if e := registerFallback(exe); e != nil {
+		// 2) 降级：schtasks 不可用 → 开机自启常驻进程（run --daemon），自行定时
+		if e := registerFallback(exe, true); e != nil {
 			return internal.NewCheckinError(internal.E006TaskRegister, "scheduler",
 				fmt.Sprintf("schtasks 失败且降级失败: %v", e))
 		}
 		return nil
 	}
-	// 3) 登录触发（需管理员权限）。失败不阻断整体安装：自动改用 Startup 自启兜底，
-	// 同样能在「开机/登录后」补签，避免非管理员双击时整个安装被判失败。
+	// 主任务成功：清理历史常驻自启，避免与计划任务双跑
+	_ = removeFallback()
+	// 3) 登录触发（需管理员权限）。失败不阻断整体安装：改用「登录时跑一次」的 Startup 自启兜底
 	if out, err := runSchtasks("/Create", "/TN", logonTaskName, "/TR", cmdLine, "/SC", "ONLOGON", "/F"); err != nil {
-		if e := registerFallback(exe); e != nil {
+		if e := registerFallback(exe, false); e != nil {
 			return fmt.Errorf("登录触发任务(DailyCheckin-Logon)注册失败: %v; schtasks输出: %s; 已注册每日定时任务但缺少登录兜底（可手动以管理员身份创建）", err, strings.TrimSpace(out))
 		}
 		fmt.Println("⚠️ 登录触发任务需管理员权限，已自动改用「开机自启(Startup)」方式实现登录后自动补签，功能不受影响。")
@@ -67,33 +68,46 @@ func RegisterDaily(exe, t string, plats []string) error {
 	return nil
 }
 
-func registerFallback(exe string) error {
+// registerFallback 写开机自启 vbs。daemon=true 时常驻进程自行定时（schtasks 不可用场景）；
+// daemon=false 时仅登录时跑一次签到（配合每日定时任务补签，不常驻、不双跑）。
+func registerFallback(exe string, daemon bool) error {
 	startup := filepath.Join(os.Getenv("APPDATA"), "Microsoft", "Windows", "Start Menu", "Programs", "Startup")
 	if err := os.MkdirAll(startup, 0o755); err != nil {
 		return err
 	}
 	vbs := filepath.Join(startup, "daily_checkin.vbs")
+	mode := "run"
+	if daemon {
+		mode = "run --daemon"
+	}
 	// vbs 内双引号需写成两个双引号
-	content := fmt.Sprintf("CreateObject(\"WScript.Shell\").Run \"\"%s\"\" run --daemon\", 0\n", exe)
+	content := fmt.Sprintf("CreateObject(\"WScript.Shell\").Run \"\"%s\"\" %s\", 0\n", exe, mode)
 	return os.WriteFile(vbs, []byte(content), 0o644)
 }
 
-// Remove 移除计划任务与降级自启
-func Remove() error {
-	_, _ = runSchtasks("/Delete", "/TN", taskName, "/F")
-	_, _ = runSchtasks("/Delete", "/TN", logonTaskName, "/F")
+func removeFallback() error {
 	vbs := filepath.Join(os.Getenv("APPDATA"), "Microsoft", "Windows", "Start Menu", "Programs", "Startup", "daily_checkin.vbs")
-	_ = os.Remove(vbs)
-	return nil
+	err := os.Remove(vbs)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	return err
 }
 
-// IsRegistered 是否已注册（任一任务存在即视为已注册）
-func IsRegistered() bool {
-	for _, tn := range []string{taskName, logonTaskName} {
-		out, err := runSchtasks("/Query", "/TN", tn)
-		if err == nil && len(out) > 0 {
-			return true
-		}
+// Remove 移除计划任务与降级自启，返回真实错误
+func Remove() error {
+	var errs []string
+	if _, err := runSchtasks("/Delete", "/TN", taskName, "/F"); err != nil {
+		errs = append(errs, fmt.Sprintf("删除每日任务: %v", err))
 	}
-	return false
+	if _, err := runSchtasks("/Delete", "/TN", logonTaskName, "/F"); err != nil {
+		errs = append(errs, fmt.Sprintf("删除登录任务: %v", err))
+	}
+	if err := removeFallback(); err != nil {
+		errs = append(errs, fmt.Sprintf("删除自启: %v", err))
+	}
+	if len(errs) > 0 {
+		return fmt.Errorf("%s", strings.Join(errs, "; "))
+	}
+	return nil
 }
