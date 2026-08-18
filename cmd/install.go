@@ -25,7 +25,7 @@ func Install(platforms []string, t string) bool {
 		platforms = []string{"trae", "workbuddy"}
 	}
 	if t == "" {
-		t = "09:30"
+		t = "10:00"
 	}
 	if !validTime(t) {
 		fmt.Println("时间格式错误，应为 HH:MM（如 09:30）")

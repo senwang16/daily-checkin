@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"daily-checkin/internal"
 )
@@ -36,8 +37,8 @@ func RegisterDaily(exe, t string, plats []string) error {
 		return nil
 	}
 	// 3) 登录触发（确保关机再开机后也能签到）
-	if _, err := runSchtasks("/Create", "/TN", logonTaskName, "/TR", cmdLine, "/SC", "ONLOGON", "/F"); err != nil {
-		return fmt.Errorf("登录触发任务(DailyCheckin-Logon)注册失败: %v; 已注册每日定时任务但缺少登录兜底", err)
+	if out, err := runSchtasks("/Create", "/TN", logonTaskName, "/TR", cmdLine, "/SC", "ONLOGON", "/F"); err != nil {
+		return fmt.Errorf("登录触发任务(DailyCheckin-Logon)注册失败: %v; schtasks输出: %s; 已注册每日定时任务但缺少登录兜底（可手动以管理员身份创建）", err, strings.TrimSpace(out))
 	}
 	return nil
 }

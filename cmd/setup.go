@@ -25,7 +25,7 @@ func Setup() bool {
 	fmt.Printf("本机登录状态: Trae=%v  WorkBuddy=%v\n", boolStr(traeOK), boolStr(wbOK))
 	fmt.Println()
 
-	t := prompt(reader, "请输入每天签到时间（HH:MM，回车默认 09:30）：", "09:30")
+	t := prompt(reader, "请输入每天签到时间（HH:MM，回车默认 10:00）：", "10:00")
 
 	enableTrae := yesNo(reader, "是否启用 Trae（每日 +200 积分）", traeOK)
 	enableWB := yesNo(reader, "是否启用 WorkBuddy（每日 +100 积分）", wbOK)
