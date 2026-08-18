@@ -1,0 +1,17 @@
+# 编译产物
+*.exe
+*.exe~
+/daily-checkin.exe
+
+# 本机凭据与日志（绝不提交）
+config.json
+checkin.log
+trae_auth.json
+auth.json
+
+# Go
+/vendor/
+
+# 系统
+.DS_Store
+Thumbs.db

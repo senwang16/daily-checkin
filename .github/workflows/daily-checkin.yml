@@ -1,0 +1,50 @@
+name: daily-checkin
+
+# 云端模式：不依赖本机开机，每天北京时间 09:30 自动签到。
+# 凭据通过 GitHub Secrets 注入（见 CLOUD.md 的提取与设置步骤）。
+on:
+  schedule:
+    - cron: "30 1 * * *" # UTC 01:30 = 北京时间 09:30
+  workflow_dispatch: {} # 支持 Actions 页面手动触发，方便测试
+
+permissions:
+  contents: read
+  issues: write # 签到失败时自动开 Issue 通知
+
+jobs:
+  checkin:
+    name: Daily Checkin
+    runs-on: windows-latest
+    env:
+      # 以下变量来自仓库 Secrets（Settings → Secrets and variables → Actions）
+      WORKBUDDY_TOKEN: ${{ secrets.WORKBUDDY_TOKEN }}
+      TRAE_AUTH_JSON: ${{ secrets.TRAE_AUTH_JSON }}
+      TRAE_AHA_ID: ${{ secrets.TRAE_AHA_ID }}
+      CHECKIN_PLATFORMS: ${{ secrets.CHECKIN_PLATFORMS }}
+      CHECKIN_TIME: "09:30"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Build
+        run: go build -o daily-checkin.exe .
+
+      - name: Run checkin
+        run: .\daily-checkin.exe run
+
+      - name: 签到失败通知
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: "⚠️ 每日签到失败",
+              body: "云端签到任务返回非零退出码，请检查 Secrets 是否过期或被风控拦截（9074）。详见本次运行的日志。",
+            })
