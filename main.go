@@ -19,6 +19,9 @@ func main() {
 	}
 	switch args[0] {
 	case "run":
+		// 静默签到：计划任务/自启启动时隐藏控制台窗口，避免黑框一闪而过；
+		// 用户在终端手动运行时共享父控制台，不会误隐藏。
+		hideConsole()
 		daemon := false
 		for _, a := range args[1:] {
 			if a == "--daemon" {
