@@ -147,16 +147,28 @@ func SaveTraeAuth(a *TraeAuth) error {
 }
 
 // FindAhaDeviceID 从 Trae App 日志提取真实 aha 设备 ID（风控白名单指纹）
-// 来源：%APPDATA%/TRAE SOLO CN/logs/aha_electron_*.log。云端模式可用环境变量覆盖。
-// 仅匹配显式 device_id 字段，避免把日志里的时间戳/消息 ID 等长数字误当设备指纹。
+// 来源：%APPDATA%/TRAE SOLO CN/logs/aha_electron_*.log（旧版）或 logs/aha_log/aha_electron_*.log（新版）。
+// 云端模式可用环境变量覆盖。仅匹配显式 device_id 字段，避免把日志里的时间戳/消息 ID 等长数字误当设备指纹。
 func FindAhaDeviceID() (string, error) {
 	if id := os.Getenv("TRAE_AHA_ID"); id != "" {
 		return id, nil
 	}
 	logDir := filepath.Join(os.Getenv("APPDATA"), "TRAE SOLO CN", "logs")
-	entries, _ := filepath.Glob(filepath.Join(logDir, "aha_electron_*.log"))
-	if len(entries) == 0 {
-		entries, _ = filepath.Glob(filepath.Join(logDir, "*"))
+	// 兼容新旧版本日志路径（新版 Trae 日志在 logs\aha_log\ 子目录）
+	patterns := []string{
+		filepath.Join(logDir, "aha_electron_*.log"),
+		filepath.Join(logDir, "aha_log", "aha_electron_*.log"),
+	}
+	seen := map[string]bool{}
+	var entries []string
+	for _, p := range patterns {
+		ms, _ := filepath.Glob(p)
+		for _, m := range ms {
+			if !seen[m] {
+				seen[m] = true
+				entries = append(entries, m)
+			}
+		}
 	}
 	re := regexp.MustCompile(`device_id["'\s:=]+(\d{10,20})`)
 	for _, f := range entries {
