@@ -17,6 +17,7 @@ const (
 	APP_VERSION = "0.1.50"
 	OAUTH_HOST  = "https://api.trae.com.cn"
 	EP_EXCHANGE = "/cloudide/api/v3/trae/oauth/ExchangeToken"
+	EP_USERINFO = "/cloudide/api/v3/trae/GetUserInfo"
 )
 
 // TraeAuth 是 Trae 登录凭据
