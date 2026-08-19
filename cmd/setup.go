@@ -25,6 +25,25 @@ func Setup() bool {
 	fmt.Printf("本机登录状态: Trae=%v  WorkBuddy=%v\n", boolStr(traeOK), boolStr(wbOK))
 	fmt.Println()
 
+	// Trae 未登录时引导登录（浏览器手机号/验证码），否则无法自动签到
+	if !traeOK {
+		fmt.Println("检测到 Trae 未登录，无法自动签到。")
+		if yesNo(reader, "是否现在登录 Trae（将打开浏览器）", true) {
+			if Login() {
+				traeOK = platform.Trae{}.Detect()
+			} else {
+				fmt.Println("登录未完成，本次跳过 Trae 启用。")
+			}
+		}
+		fmt.Println()
+	}
+	// WorkBuddy 凭证来自本机桌面端登录态，无独立登录流程，仅提示
+	if !wbOK {
+		fmt.Println("检测到 WorkBuddy 未登录：签到凭证来自本机 WorkBuddy 桌面端登录态。")
+		fmt.Println("请先安装并登录 WorkBuddy 桌面端，再重新运行本向导。")
+		fmt.Println()
+	}
+
 	t := prompt(reader, "请输入每天签到时间（HH:MM，回车默认 10:00）：", "10:00")
 
 	enableTrae := yesNo(reader, "是否启用 Trae（每日 +200 积分）", traeOK)

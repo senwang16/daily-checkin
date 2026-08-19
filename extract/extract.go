@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"time"
 
 	"daily-checkin/internal"
@@ -182,6 +183,17 @@ func FindAhaDeviceID() (string, error) {
 		}
 	}
 	return "", fmt.Errorf("未在 Trae 日志找到 aha 设备 ID")
+}
+
+// FindTraeMachineID 读取 Trae 桌面端本机 machineid（UUID）。
+// 登录时复用真实设备身份，避免随机 device_id 被服务端当成新设备。
+func FindTraeMachineID() string {
+	p := filepath.Join(os.Getenv("APPDATA"), "TRAE SOLO CN", "machineid")
+	data, err := os.ReadFile(p)
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(data))
 }
 
 // LoadWorkBuddyToken 读取 WorkBuddy 桌面端明文登录态 token。云端模式可用环境变量覆盖。

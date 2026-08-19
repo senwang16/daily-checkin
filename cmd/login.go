@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"os/exec"
 	"strings"
 	"time"
 
@@ -25,8 +26,19 @@ func Login() bool {
 	fmt.Println(sep)
 	fmt.Println()
 
-	machineID := randHex(16)
-	deviceID := randHex(16)
+	// 复用本机真实设备身份（machineid + 日志里的 aha 设备 ID），
+	// 避免随机 device_id 被服务端当成新设备、触发多端登录限制；取不到时回退随机。
+	machineID := extract.FindTraeMachineID()
+	deviceID := ""
+	if id, e := extract.FindAhaDeviceID(); e == nil {
+		deviceID = id
+	}
+	if machineID == "" {
+		machineID = randHex(16)
+	}
+	if deviceID == "" {
+		deviceID = machineID
+	}
 	loginURL := buildLoginURL(machineID, deviceID)
 
 	fmt.Println("步骤：")
@@ -38,6 +50,10 @@ func Login() bool {
 	fmt.Println()
 	fmt.Println("  " + loginURL)
 	fmt.Println()
+	if machineID != "" && deviceID != "" {
+		fmt.Printf("[*] 使用本机真实设备身份登录（machine_id=%s device_id=%s）\n", machineID, deviceID)
+	}
+	openBrowser(loginURL)
 
 	reader := bufio.NewReader(os.Stdin)
 	fmt.Print("粘贴回调链接（回车完成登录）：")
@@ -236,6 +252,16 @@ func randHex(n int) string {
 	b := make([]byte, n)
 	_, _ = rand.Read(b)
 	return hex.EncodeToString(b)
+}
+
+// openBrowser 尽力在默认浏览器打开登录链接（失败静默，用户可手动复制）
+func openBrowser(url string) {
+	cmd := exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
+	if err := cmd.Start(); err != nil {
+		fmt.Println("（自动打开浏览器失败，请手动复制上面的链接）")
+		return
+	}
+	fmt.Println("已尝试在默认浏览器打开，若未弹出请手动复制上面的链接。")
 }
 
 func min(a, b int) int {
