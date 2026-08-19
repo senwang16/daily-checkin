@@ -89,16 +89,7 @@ func (a *TraeAuth) Refresh() error {
 
 func localAppData() string { return os.Getenv("LOCALAPPDATA") }
 
-// legacyAuthPaths 兼容旧版 checkin 项目的 auth.json（任意日期目录）
-func legacyAuthPaths() []string {
-	var paths []string
-	base := os.Getenv("USERPROFILE")
-	matches, _ := filepath.Glob(filepath.Join(base, "WorkBuddy", "*", "checkin", "auth.json"))
-	paths = append(paths, matches...)
-	return paths
-}
-
-// LoadTraeAuth 从本机搜索 Trae 登录凭据（本工具目录优先，兼容旧 auth.json）。
+// LoadTraeAuth 从本机搜索 Trae 登录凭据（本工具目录优先）。
 // 云端模式优先读取环境变量（GitHub Secrets 注入），无需本机文件。
 func LoadTraeAuth() (*TraeAuth, error) {
 	// 1) 环境变量：完整 JSON
@@ -119,12 +110,11 @@ func LoadTraeAuth() (*TraeAuth, error) {
 			FromEnv:      true,
 		}, nil
 	}
-	// 3) 本机文件
+	// 3) 本机文件（仅本工具自己的目录，不依赖旧项目）
 	files := []string{
 		filepath.Join(localAppData(), "daily-checkin", "trae_auth.json"),
 		filepath.Join(localAppData(), "daily-checkin", "auth.json"),
 	}
-	files = append(files, legacyAuthPaths()...)
 	for _, p := range files {
 		data, err := os.ReadFile(p)
 		if err != nil {
