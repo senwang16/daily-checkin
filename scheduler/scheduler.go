@@ -80,8 +80,9 @@ func registerFallback(exe string, daemon bool) error {
 	if daemon {
 		mode = "run --daemon"
 	}
-	// vbs 内双引号需写成两个双引号
-	content := fmt.Sprintf("CreateObject(\"WScript.Shell\").Run \"\"%s\"\" %s\", 0\n", exe, mode)
+	// 用 Chr(34) 拼接引号：路径作为普通字符串、不含内嵌引号，避免 exe 路径带空格/特殊字符时
+	// VBScript 字符串未闭合（800A0401 语句未结束）。比 "" 转义更稳妥、可读性更好。
+	content := fmt.Sprintf("Set ws = CreateObject(\"WScript.Shell\")\nws.Run Chr(34) & \"%s\" & Chr(34) & \" %s\", 0, False\n", exe, mode)
 	return os.WriteFile(vbs, []byte(content), 0o644)
 }
 
