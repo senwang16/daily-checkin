@@ -82,16 +82,22 @@ func buildCredItems() []credItem {
 		})
 	}
 
-	// 米游社
-	if c, err := platform.LoadMiyousheCookie(); err == nil {
-		preview := c
-		if len(preview) > 20 {
-			preview = preview[:20] + "..."
+	// 米游社（多账号）
+	mysAccounts := platform.LoadMiyousheAccounts()
+	if len(mysAccounts) > 0 {
+		for _, acc := range mysAccounts {
+			label := "米游社·原神"
+			if acc.AccountID != "" {
+				label += " (账号 " + acc.AccountID + ")"
+			}
+			preview := acc.Cookie
+			if len(preview) > 20 {
+				preview = preview[:20] + "..."
+			}
+			items = append(items, credItem{
+				Platform: "miyoushe", Label: label, Detail: "✅ 已配置 Cookie (" + preview + ")",
+			})
 		}
-		items = append(items, credItem{
-			Platform: "miyoushe", Label: "米游社·原神", Detail: "✅ 已配置 Cookie (" + preview + ")",
-			File: platform.MiyousheCookiePath(),
-		})
 	} else {
 		items = append(items, credItem{
 			Platform: "miyoushe", Label: "米游社·原神", Detail: "❌ 未配置 Cookie",

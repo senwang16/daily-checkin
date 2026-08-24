@@ -31,43 +31,124 @@ const (
 
 // miyousheCookieFile 保存用户粘贴的 Cookie
 type miyousheCookieFile struct {
-	Cookie string `json:"cookie"`
+	Cookie    string `json:"cookie"`
+	AccountID string `json:"account_id"` // 从 cookie 提取，用于多账号文件命名
 }
 
-func miyousheCookiePath() string {
-	return filepath.Join(os.Getenv("LOCALAPPDATA"), "daily-checkin", "miyoushe.json")
+// MiyousheAccount 导出的米游社账号信息（供凭据面板）
+type MiyousheAccount struct {
+	Cookie    string
+	AccountID string
 }
 
-// MiyousheCookiePath 导出米游社 Cookie 文件路径（供凭据面板删除用）
-func MiyousheCookiePath() string { return miyousheCookiePath() }
+func miyousheDir() string {
+	return filepath.Join(os.Getenv("LOCALAPPDATA"), "daily-checkin")
+}
 
-// LoadMiyousheCookie 读取米游社 Cookie（环境变量优先，便于云端）
-func LoadMiyousheCookie() (string, error) {
+// MiyousheCookiePath 兼容旧单文件路径（供凭据面板显示）
+func MiyousheCookiePath() string {
+	return filepath.Join(miyousheDir(), "miyoushe.json")
+}
+
+// extractAccountID 从 cookie 提取 account_id（多账号文件命名依据）
+func extractAccountID(cookie string) string {
+	for _, kv := range strings.Split(cookie, ";") {
+		kv = strings.TrimSpace(kv)
+		if strings.HasPrefix(kv, "account_id_v2=") {
+			return strings.TrimPrefix(kv, "account_id_v2=")
+		}
+		if strings.HasPrefix(kv, "account_id=") {
+			return strings.TrimPrefix(kv, "account_id=")
+		}
+	}
+	return ""
+}
+
+// LoadMiyousheAccounts 加载所有米游社账号（多账号支持，导出给凭据面板）
+func LoadMiyousheAccounts() []MiyousheAccount {
+	var out []MiyousheAccount
+	for _, f := range loadMiyousheCookieFiles() {
+		out = append(out, MiyousheAccount{Cookie: f.Cookie, AccountID: f.AccountID})
+	}
+	return out
+}
+
+// loadMiyousheCookieFiles 内部加载（多文件 + 旧单文件兼容）
+func loadMiyousheCookieFiles() []*miyousheCookieFile {
+	var out []*miyousheCookieFile
+	seen := map[string]bool{}
+
+	add := func(f *miyousheCookieFile) {
+		if f == nil || strings.TrimSpace(f.Cookie) == "" {
+			return
+		}
+		key := f.AccountID
+		if key == "" {
+			key = f.Cookie[:32] // 无 account_id 时用 cookie 前缀去重
+		}
+		if seen[key] {
+			return
+		}
+		seen[key] = true
+		out = append(out, f)
+	}
+
+	// 1) 环境变量（云端单账号）
 	if c := os.Getenv("MIYOUSHE_COOKIE"); c != "" {
-		return c, nil
+		add(&miyousheCookieFile{Cookie: c, AccountID: extractAccountID(c)})
+		return out
 	}
-	data, err := os.ReadFile(miyousheCookiePath())
-	if err != nil {
-		return "", err
+
+	// 2) 多账号文件 miyoushe_*.json
+	if entries, _ := filepath.Glob(filepath.Join(miyousheDir(), "miyoushe_*.json")); len(entries) > 0 {
+		for _, p := range entries {
+			if data, err := os.ReadFile(p); err == nil {
+				var f miyousheCookieFile
+				if json.Unmarshal(data, &f) == nil {
+					if f.AccountID == "" {
+						f.AccountID = extractAccountID(f.Cookie)
+					}
+					add(&f)
+				}
+			}
+		}
 	}
-	var f miyousheCookieFile
-	if err := json.Unmarshal(data, &f); err != nil {
-		return "", err
+
+	// 3) 旧单文件（向后兼容）
+	if data, err := os.ReadFile(MiyousheCookiePath()); err == nil {
+		var f miyousheCookieFile
+		if json.Unmarshal(data, &f) == nil {
+			if f.AccountID == "" {
+				f.AccountID = extractAccountID(f.Cookie)
+			}
+			add(&f)
+		}
 	}
-	if strings.TrimSpace(f.Cookie) == "" {
-		return "", fmt.Errorf("cookie 为空")
-	}
-	return f.Cookie, nil
+	return out
 }
 
-// SaveMiyousheCookie 保存 Cookie 到本机
+// LoadMiyousheCookie 兼容旧接口：返回第一个账号的 Cookie
+func LoadMiyousheCookie() (string, error) {
+	cookies := loadMiyousheCookieFiles()
+	if len(cookies) == 0 {
+		return "", fmt.Errorf("未配置 Cookie")
+	}
+	return cookies[0].Cookie, nil
+}
+
+// SaveMiyousheCookie 保存 Cookie 到本机（多账号：按 account_id 存独立文件）
 func SaveMiyousheCookie(cookie string) error {
-	dir := filepath.Join(os.Getenv("LOCALAPPDATA"), "daily-checkin")
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := os.MkdirAll(miyousheDir(), 0o755); err != nil {
 		return err
 	}
-	data, _ := json.MarshalIndent(miyousheCookieFile{Cookie: cookie}, "", "  ")
-	return os.WriteFile(miyousheCookiePath(), data, 0o600)
+	accountID := extractAccountID(cookie)
+	if accountID == "" {
+		return fmt.Errorf("Cookie 中未检测到 account_id，无法保存")
+	}
+	f := miyousheCookieFile{Cookie: cookie, AccountID: accountID}
+	data, _ := json.MarshalIndent(f, "", "  ")
+	p := filepath.Join(miyousheDir(), "miyoushe_"+accountID+".json")
+	return os.WriteFile(p, data, 0o600)
 }
 
 // mysDS 生成米游社 web 版 DS 签名：md5(salt=盐&t=秒时间戳&r=6位随机字母数字)
@@ -148,15 +229,35 @@ func (Miyoushe) Detect() bool {
 	return err == nil
 }
 
-// Checkin 执行原神签到
+// Checkin 执行原神签到（遍历所有已配置账号）
 func (Miyoushe) Checkin() *internal.CheckinError {
-	cookie, err := LoadMiyousheCookie()
-	if err != nil {
+	cookies := loadMiyousheCookieFiles()
+	if len(cookies) == 0 {
 		return internal.NewCheckinError(internal.E001CredNotFound, "米游社",
 			"未配置 Cookie，请运行 daily-checkin.exe miyoushe 粘贴 Cookie")
 	}
 	client := internal.NewHTTPClient()
+	var fails []string
+	okCount := 0
+	for _, acc := range cookies {
+		name := acc.AccountID
+		if name == "" {
+			name = "米游社账号"
+		}
+		if ce := checkinOneMiyoushe(client, acc.Cookie); ce != nil {
+			fails = append(fails, name+": "+ce.UserMessage())
+		} else {
+			okCount++
+		}
+	}
+	if len(fails) > 0 {
+		return internal.NewCheckinError(internal.E005BizError, "米游社", strings.Join(fails, "; "))
+	}
+	return nil
+}
 
+// checkinOneMiyoushe 对单个米游社账号执行签到
+func checkinOneMiyoushe(client *internal.HTTPClient, cookie string) *internal.CheckinError {
 	// 1. 获取原神角色列表
 	code, resp, e := client.Get(mysRolesURL, mysHeaders(cookie, false))
 	if e != nil {
