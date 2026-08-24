@@ -38,6 +38,9 @@ func miyousheCookiePath() string {
 	return filepath.Join(os.Getenv("LOCALAPPDATA"), "daily-checkin", "miyoushe.json")
 }
 
+// MiyousheCookiePath 导出米游社 Cookie 文件路径（供凭据面板删除用）
+func MiyousheCookiePath() string { return miyousheCookiePath() }
+
 // LoadMiyousheCookie 读取米游社 Cookie（环境变量优先，便于云端）
 func LoadMiyousheCookie() (string, error) {
 	if c := os.Getenv("MIYOUSHE_COOKIE"); c != "" {

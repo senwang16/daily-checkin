@@ -43,6 +43,9 @@ func main() {
 		if !cmd.Miyoushe() {
 			os.Exit(1)
 		}
+	case "creds":
+		// 凭据管理面板：总览所有平台凭据状态，支持重新登录/配置/删除
+		cmd.Creds()
 	case "install":
 		plats, t := parseInstallArgs(args[1:])
 		if !cmd.Install(plats, t) {
@@ -69,6 +72,7 @@ func printUsage() {
 	fmt.Println("  daily-checkin.exe status     查看安装与登录状态")
 	fmt.Println("  daily-checkin.exe login      登录 Trae，生成签到凭证（浏览器手机号/验证码）")
 	fmt.Println("  daily-checkin.exe miyoushe   配置米游社 Cookie（原神签到，浏览器抓取）")
+	fmt.Println("  daily-checkin.exe creds      凭据管理面板（查看/更新/删除所有凭据）")
 	fmt.Println("  daily-checkin.exe install --platforms=trae,workbuddy --time=10:00  命令行安装")
 	fmt.Println("  daily-checkin.exe export    导出本机凭据（供云端配置）")
 	fmt.Println("  daily-checkin.exe uninstall  卸载自动签到")
