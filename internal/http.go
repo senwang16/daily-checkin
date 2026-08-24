@@ -44,14 +44,23 @@ func (h *HTTPClient) PostJSONRetry(url string, headers map[string]string, body i
 	return lastCode, lastResp, lastErr
 }
 
+// Get 发送 GET 请求，返回 (http状态码, 响应体map, error)
+func (h *HTTPClient) Get(url string, headers map[string]string) (int, map[string]interface{}, error) {
+	return h.doMethod(http.MethodGet, url, headers, nil)
+}
+
 func (h *HTTPClient) do(url string, headers map[string]string, body interface{}) (int, map[string]interface{}, error) {
+	return h.doMethod(http.MethodPost, url, headers, body)
+}
+
+func (h *HTTPClient) doMethod(method, url string, headers map[string]string, body interface{}) (int, map[string]interface{}, error) {
 	var buf bytes.Buffer
 	if body != nil {
 		if err := json.NewEncoder(&buf).Encode(body); err != nil {
 			return 0, nil, err
 		}
 	}
-	req, err := http.NewRequest(http.MethodPost, url, &buf)
+	req, err := http.NewRequest(method, url, &buf)
 	if err != nil {
 		return 0, nil, err
 	}

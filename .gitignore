@@ -9,6 +9,8 @@ config.json
 checkin.log
 trae_auth.json
 auth.json
+miyoushe.json
+auths/
 
 # Go
 /vendor/

@@ -21,4 +21,5 @@ func Get(name string) Platform { return registry[name] }
 func init() {
 	Register(Trae{})
 	Register(WorkBuddy{})
+	Register(Miyoushe{})
 }

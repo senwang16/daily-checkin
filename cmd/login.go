@@ -151,8 +151,9 @@ func Login() bool {
 
 	fmt.Println()
 	fmt.Println(sep)
-	fmt.Println("  登录成功，凭证已保存到 %LOCALAPPDATA%\\daily-checkin\\trae_auth.json")
+	fmt.Printf("  登录成功，凭证已保存到 %%LOCALAPPDATA%%\\daily-checkin\\auths\\trae-%s.json\n", uid)
 	fmt.Printf("  用户: %s (uid: %s)\n", nickname, uid)
+	fmt.Println("  多账号：再次运行 daily-checkin.exe login 登录另一个号即可，会自动并存")
 	fmt.Println("  接下来运行 daily-checkin.exe install 即可设置自动签到")
 	fmt.Println(sep)
 	return true

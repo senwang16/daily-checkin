@@ -38,6 +38,11 @@ func main() {
 		if !cmd.Login() {
 			os.Exit(1)
 		}
+	case "miyoushe":
+		// 交互式配置米游社 Cookie（浏览器无痕模式抓取）
+		if !cmd.Miyoushe() {
+			os.Exit(1)
+		}
 	case "install":
 		plats, t := parseInstallArgs(args[1:])
 		if !cmd.Install(plats, t) {
@@ -63,6 +68,7 @@ func printUsage() {
 	fmt.Println("  daily-checkin.exe run --daemon  常驻进程，按配置时间定时签到")
 	fmt.Println("  daily-checkin.exe status     查看安装与登录状态")
 	fmt.Println("  daily-checkin.exe login      登录 Trae，生成签到凭证（浏览器手机号/验证码）")
+	fmt.Println("  daily-checkin.exe miyoushe   配置米游社 Cookie（原神签到，浏览器抓取）")
 	fmt.Println("  daily-checkin.exe install --platforms=trae,workbuddy --time=10:00  命令行安装")
 	fmt.Println("  daily-checkin.exe export    导出本机凭据（供云端配置）")
 	fmt.Println("  daily-checkin.exe uninstall  卸载自动签到")

@@ -22,7 +22,8 @@ func Setup() bool {
 
 	traeOK := platform.Trae{}.Detect()
 	wbOK := platform.WorkBuddy{}.Detect()
-	fmt.Printf("本机登录状态: Trae=%v  WorkBuddy=%v\n", boolStr(traeOK), boolStr(wbOK))
+	mysOK := platform.Miyoushe{}.Detect()
+	fmt.Printf("本机登录状态: Trae=%v  WorkBuddy=%v  米游社=%v\n", boolStr(traeOK), boolStr(wbOK), boolStr(mysOK))
 	fmt.Println()
 
 	// Trae 未登录时引导登录（浏览器手机号/验证码），否则无法自动签到
@@ -48,6 +49,7 @@ func Setup() bool {
 
 	enableTrae := yesNo(reader, "是否启用 Trae（每日 +200 积分）", traeOK)
 	enableWB := yesNo(reader, "是否启用 WorkBuddy（每日 +100 积分）", wbOK)
+	enableMys := yesNo(reader, "是否启用 米游社·原神（每日签到福利，需先运行 daily-checkin.exe miyoushe 配置 Cookie）", mysOK)
 
 	var plats []string
 	if enableTrae {
@@ -55,6 +57,9 @@ func Setup() bool {
 	}
 	if enableWB {
 		plats = append(plats, "workbuddy")
+	}
+	if enableMys {
+		plats = append(plats, "miyoushe")
 	}
 	if len(plats) == 0 {
 		fmt.Println("错误：至少选择一个平台")

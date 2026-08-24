@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"daily-checkin/extract"
 	"daily-checkin/notify"
 	"daily-checkin/platform"
 	"daily-checkin/scheduler"
@@ -127,7 +128,13 @@ func Status() {
 		if !p.Detect() {
 			state = "未检测到登录凭据"
 		}
-		fmt.Println(" - " + p.DisplayName() + "：" + state)
+		extra := ""
+		if name == "trae" {
+			if n := len(extract.LoadTraeAuths()); n > 0 {
+				extra = fmt.Sprintf("（%d 个账号）", n)
+			}
+		}
+		fmt.Println(" - " + p.DisplayName() + "：" + state + extra)
 	}
 }
 

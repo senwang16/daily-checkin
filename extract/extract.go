@@ -32,6 +32,8 @@ type TraeAuth struct {
 	CreatedAt    int64  `json:"created_at"`
 	// FromEnv 标记凭据来自环境变量（云端模式），刷新后无法回写，故跳过自动续期
 	FromEnv bool `json:"-"`
+	// SrcFile 凭据来源文件（多账号回写定位），不序列化
+	SrcFile string `json:"-"`
 }
 
 // NeedRefresh token 是否即将过期（提前 12 小时刷新）。
@@ -89,53 +91,129 @@ func (a *TraeAuth) Refresh() error {
 
 func localAppData() string { return os.Getenv("LOCALAPPDATA") }
 
-// LoadTraeAuth 从本机搜索 Trae 登录凭据（本工具目录优先）。
-// 云端模式优先读取环境变量（GitHub Secrets 注入），无需本机文件。
+// LoadTraeAuth 从本机搜索 Trae 登录凭据（返回第一个账号）。
+// 多账号场景请用 LoadTraeAuths()。云端模式优先读取环境变量。
 func LoadTraeAuth() (*TraeAuth, error) {
-	// 1) 环境变量：完整 JSON
+	auths := LoadTraeAuths()
+	if len(auths) == 0 {
+		return nil, fmt.Errorf("未找到 Trae 登录凭据(请运行 daily-checkin.exe login 登录，或设置 TRAE_AUTH_JSON 环境变量)")
+	}
+	return auths[0], nil
+}
+
+// SaveTraeAuth 持久化凭据（供续期回写）。按 uid 存到 auths/ 子目录，支持多账号。
+func SaveTraeAuth(a *TraeAuth) error {
+	if a.UID != "" {
+		return saveTraeAuthTo(authsDir(), "trae-"+a.UID+".json", a)
+	}
+	// 无 uid 时回退旧单文件（兼容老逻辑）
+	return saveTraeAuthTo(filepath.Join(localAppData(), "daily-checkin"), "trae_auth.json", a)
+}
+
+func authsDir() string {
+	return filepath.Join(localAppData(), "daily-checkin", "auths")
+}
+
+func saveTraeAuthTo(dir, name string, a *TraeAuth) error {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+	data, _ := json.MarshalIndent(a, "", "  ")
+	p := filepath.Join(dir, name)
+	tmp := p + ".tmp"
+	if err := os.WriteFile(tmp, data, 0o600); err != nil {
+		return err
+	}
+	return os.Rename(tmp, p)
+}
+
+// SaveTraeAuthBack 按凭据来源文件回写（多账号刷新 token 后写回原文件）。
+// 来源是环境变量或未知时回退到按 uid 保存。
+func SaveTraeAuthBack(a *TraeAuth) error {
+	if a.SrcFile != "" && !isEnvSource(a.SrcFile) {
+		data, _ := json.MarshalIndent(a, "", "  ")
+		tmp := a.SrcFile + ".tmp"
+		if err := os.WriteFile(tmp, data, 0o600); err != nil {
+			return err
+		}
+		return os.Rename(tmp, a.SrcFile)
+	}
+	return SaveTraeAuth(a)
+}
+
+func isEnvSource(src string) bool {
+	return len(src) >= 4 && src[:4] == "env:"
+}
+
+// LoadTraeAuths 加载本机所有 Trae 账号（多账号支持）。
+// 来源：auths/*.json（新，按 uid 命名）+ 旧单文件 trae_auth.json / auth.json（向后兼容）。
+// 云端模式：环境变量仅注入单个账号。
+func LoadTraeAuths() []*TraeAuth {
+	var out []*TraeAuth
+	seen := map[string]bool{}
+
+	add := func(a *TraeAuth, fromFile string) {
+		if a == nil || a.AccessToken == "" {
+			return
+		}
+		key := a.UID
+		if key == "" {
+			key = fromFile
+		}
+		if seen[key] {
+			return
+		}
+		seen[key] = true
+		a.SrcFile = fromFile
+		out = append(out, a)
+	}
+
+	// 1) 环境变量（云端单账号）
 	if j := os.Getenv("TRAE_AUTH_JSON"); j != "" {
 		var a TraeAuth
 		if json.Unmarshal([]byte(j), &a) == nil && a.AccessToken != "" {
 			a.FromEnv = true
-			return &a, nil
+			add(&a, "env:TRAE_AUTH_JSON")
+			return out
 		}
 	}
-	// 2) 环境变量：单项
 	if t := os.Getenv("TRAE_ACCESS_TOKEN"); t != "" {
-		return &TraeAuth{
+		a := &TraeAuth{
 			AccessToken:  t,
 			RefreshToken: os.Getenv("TRAE_REFRESH_TOKEN"),
 			UID:          os.Getenv("TRAE_UID"),
 			DeviceID:     os.Getenv("TRAE_DEVICE_ID"),
 			FromEnv:      true,
-		}, nil
+		}
+		add(a, "env:TRAE_ACCESS_TOKEN")
+		return out
 	}
-	// 3) 本机文件（仅本工具自己的目录，不依赖旧项目）
-	files := []string{
+
+	// 2) auths/*.json（新多账号目录）
+	if entries, _ := filepath.Glob(filepath.Join(authsDir(), "*.json")); len(entries) > 0 {
+		for _, p := range entries {
+			if data, err := os.ReadFile(p); err == nil {
+				var a TraeAuth
+				if json.Unmarshal(data, &a) == nil && a.AccessToken != "" {
+					add(&a, p)
+				}
+			}
+		}
+	}
+
+	// 3) 旧单文件（向后兼容）
+	for _, p := range []string{
 		filepath.Join(localAppData(), "daily-checkin", "trae_auth.json"),
 		filepath.Join(localAppData(), "daily-checkin", "auth.json"),
-	}
-	for _, p := range files {
-		data, err := os.ReadFile(p)
-		if err != nil {
-			continue
-		}
-		var a TraeAuth
-		if json.Unmarshal(data, &a) == nil && a.AccessToken != "" {
-			return &a, nil
+	} {
+		if data, err := os.ReadFile(p); err == nil {
+			var a TraeAuth
+			if json.Unmarshal(data, &a) == nil && a.AccessToken != "" {
+				add(&a, p)
+			}
 		}
 	}
-	return nil, fmt.Errorf("未找到 Trae 登录凭据(请将 trae_auth.json 放到 %s，或设置 TRAE_AUTH_JSON 环境变量)", filepath.Join(localAppData(), "daily-checkin"))
-}
-
-// SaveTraeAuth 持久化凭据（供续期回写）
-func SaveTraeAuth(a *TraeAuth) error {
-	dir := filepath.Join(localAppData(), "daily-checkin")
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return err
-	}
-	data, _ := json.MarshalIndent(a, "", "  ")
-	return os.WriteFile(filepath.Join(dir, "trae_auth.json"), data, 0o600)
+	return out
 }
 
 // FindAhaDeviceID 从 Trae App 日志提取真实 aha 设备 ID（风控白名单指纹）
