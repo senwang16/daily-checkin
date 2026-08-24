@@ -11,20 +11,22 @@ import (
 	"time"
 
 	"daily-checkin/internal"
+	"daily-checkin/store"
 )
 
-// 米游社原神签到 API（社区公开，MihoyoBBSTools 同款）
+// 米游社原神签到 API（与 MihoyoBBSTools 同步，2026 年现行接口）
+// 注意：游戏签到接口已从 event/bbs_sign_reward 迁移到 event/luna/，act_id 会随版本更新
 const (
-	mysActID     = "e202009291139501" // 原神签到活动 ID
+	mysActID     = "e202311201442471" // 原神签到活动 ID（现行）
 	mysAPIBase   = "https://api-takumi.mihoyo.com"
 	mysRolesURL  = mysAPIBase + "/binding/api/getUserGameRolesByCookie?game_biz=hk4e_cn"
-	mysSignBase  = "https://api-takumi.mihoyo.com/event/bbs_sign_reward"
-	mysInfoURL   = mysSignBase + "/info?act_id=" + mysActID + "&region=%s&uid=%s"
-	mysSignURL   = mysSignBase + "/sign"
-	mysAppVer    = "2.34.1"
-	mysClientTyp = "5"
-	// DS v1 签名盐（米游社签到接口长期使用，社区公开）
-	mysDSSalt = "9nQiU3AV0rJSIBWgdynfoGMGKaklfbM7"
+	mysLunaBase  = mysAPIBase + "/event/luna"
+	mysInfoURL   = mysLunaBase + "/info?lang=zh-cn&act_id=" + mysActID + "&region=%s&uid=%s"
+	mysSignURL   = mysLunaBase + "/sign"
+	mysAppVer    = "2.109.0"
+	mysClientTyp = "5" // mobile web
+	// DS v1 签名盐（米游社 web 端，与 app_version 对应，社区公开）
+	mysDSSalt = "d9200c846b10886e8c874fc33c8f308b"
 )
 
 // miyousheCookieFile 保存用户粘贴的 Cookie
@@ -65,28 +67,43 @@ func SaveMiyousheCookie(cookie string) error {
 	return os.WriteFile(miyousheCookiePath(), data, 0o600)
 }
 
-// mysDS 生成米游社 v1 版 DS 签名：md5(salt=盐&t=秒时间戳&r=6位随机数)
+// mysDS 生成米游社 web 版 DS 签名：md5(salt=盐&t=秒时间戳&r=6位随机字母数字)
+// 与 MihoyoBBSTools 的 tools.get_ds(web=True) 一致
 func mysDS() string {
 	t := time.Now().Unix()
-	r := rand.Intn(899999) + 100000 // 100000-999999
-	s := fmt.Sprintf("salt=%s&t=%d&r=%d", mysDSSalt, t, r)
+	r := randomText(6)
+	s := fmt.Sprintf("salt=%s&t=%d&r=%s", mysDSSalt, t, r)
 	sum := md5.Sum([]byte(s))
-	return fmt.Sprintf("%d,%d,%x", t, r, sum)
+	return fmt.Sprintf("%d,%s,%x", t, r, sum)
+}
+
+const mysRandChars = "abcdefghijklmnopqrstuvwxyz0123456789"
+
+func randomText(n int) string {
+	b := make([]byte, n)
+	for i := range b {
+		b[i] = mysRandChars[rand.Intn(len(mysRandChars))]
+	}
+	return string(b)
 }
 
 func mysHeaders(cookie string, withDS bool) map[string]string {
 	h := map[string]string{
 		"Cookie":           cookie,
-		"User-Agent":       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) miHoYoBBS/" + mysAppVer,
+		"User-Agent":       "Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/103.0.5060.129 Mobile Safari/537.36 miHoYoBBS/" + mysAppVer,
 		"Accept":           "application/json, text/plain, */*",
-		"Referer":          "https://webstatic.mihoyo.com/",
+		"Accept-Language":  "zh-CN,en-US;q=0.8",
+		"Origin":           "https://act.mihoyo.com",
+		"Referer":          "https://act.mihoyo.com/",
 		"X-Requested-With": "com.mihoyo.hyperion",
+		"x-rpc-channel":    "miyousheluodi",
 	}
 	if withDS {
 		h["DS"] = mysDS()
 		h["x-rpc-app_version"] = mysAppVer
 		h["x-rpc-client_type"] = mysClientTyp
 		h["x-rpc-device_id"] = mysDeviceID(cookie)
+		h["x-rpc-signgame"] = "hk4e" // 原神签到必须
 	}
 	return h
 }
@@ -206,9 +223,9 @@ func strVal(v interface{}) string {
 
 // signOneRole 对单个角色：先查 info 是否已签，未签则 sign
 func signOneRole(client *internal.HTTPClient, cookie string, role gameRole) *internal.CheckinError {
-	// 查签到状态
+	// 查签到状态（info 也需带 DS 与 signgame 头，否则被风控 -500001 拦截）
 	infoURL := fmt.Sprintf(mysInfoURL, role.Region, role.GameUID)
-	code, resp, e := client.Get(infoURL, mysHeaders(cookie, false))
+	code, resp, e := client.Get(infoURL, mysHeaders(cookie, true))
 	if e != nil {
 		if code == 429 {
 			return internal.NewCheckinError(internal.E007RateLimited, "米游社", "请求过于频繁(429)")
@@ -221,6 +238,7 @@ func signOneRole(client *internal.HTTPClient, cookie string, role gameRole) *int
 	}
 	if data, ok := resp["data"].(map[string]interface{}); ok {
 		if signed, _ := data["is_sign"].(bool); signed {
+			store.AppendLog("[OK] 米游社·原神 " + role.Nickname + " 今日已签到")
 			return nil // 已签到
 		}
 	}
@@ -243,10 +261,12 @@ func signOneRole(client *internal.HTTPClient, cookie string, role gameRole) *int
 	}
 	rc := mysRetcode(resp)
 	if rc == 0 {
+		store.AppendLog("[OK] 米游社·原神 " + role.Nickname + " 签到成功")
 		return nil
 	}
 	// 幂等：-5003 = 今日已签到
 	if rc == -5003 {
+		store.AppendLog("[OK] 米游社·原神 " + role.Nickname + " 今日已签到")
 		return nil
 	}
 	return internal.NewCheckinError(internal.E005BizError, "米游社",
