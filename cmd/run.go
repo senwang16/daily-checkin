@@ -65,7 +65,7 @@ func runOnce() bool {
 		}
 	}
 	if len(fails) > 0 {
-		notify.Notify("每日签到失败", strings.Join(fails, "\n"))
+		notify.NotifyAll("每日签到失败", strings.Join(fails, "\n"))
 		fmt.Println("签到存在失败项")
 		return false
 	}

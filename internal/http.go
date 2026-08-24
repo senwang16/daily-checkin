@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 )
 
@@ -47,6 +49,26 @@ func (h *HTTPClient) PostJSONRetry(url string, headers map[string]string, body i
 // Get 发送 GET 请求，返回 (http状态码, 响应体map, error)
 func (h *HTTPClient) Get(url string, headers map[string]string) (int, map[string]interface{}, error) {
 	return h.doMethod(http.MethodGet, url, headers, nil)
+}
+
+// PostForm 发送 POST 表单（application/x-www-form-urlencoded），返回 (http状态码, 响应体map, error)
+func (h *HTTPClient) PostForm(url string, form url.Values) (int, map[string]interface{}, error) {
+	req, err := http.NewRequest(http.MethodPost, url, strings.NewReader(form.Encode()))
+	if err != nil {
+		return 0, nil, err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	resp, err := h.c.Do(req)
+	if err != nil {
+		return 0, nil, err
+	}
+	defer resp.Body.Close()
+	data, _ := io.ReadAll(resp.Body)
+	out := map[string]interface{}{}
+	if len(data) > 0 {
+		_ = json.Unmarshal(data, &out)
+	}
+	return resp.StatusCode, out, nil
 }
 
 func (h *HTTPClient) do(url string, headers map[string]string, body interface{}) (int, map[string]interface{}, error) {
