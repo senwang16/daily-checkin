@@ -32,6 +32,19 @@ func (WorkBuddy) Checkin() *internal.CheckinError {
 	}
 	client := internal.NewHTTPClient()
 	code, resp, e := client.PostJSONRetry(wbHost, headers, map[string]interface{}{}, 2)
+
+	// WorkBuddy 接口在「今日已签到」时返回 HTTP 400 + code:10001，
+	// 必须先看业务码，再判断 HTTP 错误（否则幂等场景被误判为网络错误）
+	if resp != nil {
+		rc := int(toFloat(resp["code"]))
+		if rc == 0 {
+			return nil
+		}
+		if rc == wbCodeAlreadyIn {
+			return nil
+		}
+	}
+
 	if e != nil {
 		if code == 401 {
 			return internal.NewCheckinError(internal.E002TokenExpired, "WorkBuddy", "token 失效")
@@ -41,12 +54,10 @@ func (WorkBuddy) Checkin() *internal.CheckinError {
 		}
 		return internal.NewCheckinError(internal.E004Network, "WorkBuddy", e.Error())
 	}
+
+	// HTTP 成功但业务码未知
 	rc := int(toFloat(resp["code"]))
-	if rc == 0 {
-		return nil
-	}
-	// 幂等：显式业务码 10001 表示今日已签到，视为成功（Python 参考实现确认）
-	if rc == wbCodeAlreadyIn {
+	if rc == 0 || rc == wbCodeAlreadyIn {
 		return nil
 	}
 	return internal.NewCheckinError(internal.E005BizError, "WorkBuddy", bizMsg(resp))

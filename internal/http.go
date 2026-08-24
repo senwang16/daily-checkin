@@ -81,6 +81,7 @@ func (h *HTTPClient) doMethod(method, url string, headers map[string]string, bod
 		}
 	}
 	if resp.StatusCode >= 400 {
+		// 4xx/5xx 也返回响应体，让调用方有机会读业务码（如 WorkBuddy 的 10001 已签到）
 		return resp.StatusCode, out, fmt.Errorf("HTTP %d", resp.StatusCode)
 	}
 	return resp.StatusCode, out, nil
