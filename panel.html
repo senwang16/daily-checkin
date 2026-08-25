@@ -22,7 +22,7 @@ header h1 span { color: var(--accent); }
 .card h2 { font-size: 16px; margin-bottom: 4px; }
 .card .sub { font-size: 13px; color: var(--muted); margin-bottom: 14px; line-height: 1.6; }
 .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
-input[type=text], input[type=password], textarea {
+input[type=text], input[type=password], input[type=time], textarea {
   border: 1px solid var(--border); border-radius: 8px; padding: 9px 12px; font-size: 14px;
   font-family: inherit; width: 100%; background: #fafbfc; transition: border-color .15s;
 }
@@ -107,7 +107,7 @@ code { background: #f3f4f6; padding: 2px 6px; border-radius: 4px; font-size: 13p
     </div>
     <div class="tip">
       推荐 <b>Fine-grained token</b>（github.com → Settings → Developer settings → Fine-grained tokens）：仅授权本仓库，权限勾
-      <code>Actions: Read and write</code>、<code>Secrets: Read and write</code>、<code>Variables: Read and write</code>，有效期设 90 天。
+      <code>Actions</code>、<code>Secrets</code>、<code>Variables</code>、<code>Workflows</code>、<code>Contents</code> 均为 <code>Read and write</code>（后两项用于面板修改签到时间），有效期设 90 天。
     </div>
   </div>
 
@@ -119,6 +119,17 @@ code { background: #f3f4f6; padding: 2px 6px; border-radius: 4px; font-size: 13p
     <div class="row" style="margin-top:14px">
       <button id="btn-save-plat">保存平台配置</button>
       <span style="font-size:13px;color:var(--muted)" id="plat-status"></span>
+    </div>
+  </div>
+
+  <!-- 签到时间 -->
+  <div class="card hidden" id="sec-time">
+    <h2>签到时间</h2>
+    <div class="sub">GitHub 的定时规则写在工作流文件的 cron 里（GitHub 不支持用 Variables 之类的配置参数化 cron），保存时面板会自动改写该文件并提交到仓库，无需手动编辑。自动附带 +20 分钟备用触发，防 GitHub 高峰期延迟漏跑；签到幂等，重复执行无害。当前生效：<b id="cur-time">—</b></div>
+    <div class="row">
+      <input type="time" id="in-time" style="width:150px">
+      <button id="btn-save-time">保存时间</button>
+      <span style="font-size:13px;color:var(--muted)" id="time-status"></span>
     </div>
   </div>
 
@@ -209,7 +220,7 @@ async function api(path, opts = {}) {
     },
   });
   if (r.status === 401) { setConn(false); throw new Error("Token 无效或已过期，请重新填写"); }
-  if (r.status === 403) { throw new Error("无权限（403）：请检查 fine-grained token 是否勾选了 Actions / Secrets / Variables 的读写权限，且授权范围包含本仓库"); }
+  if (r.status === 403) { throw new Error("无权限（403）：请检查 fine-grained token 是否勾选了 Actions / Secrets / Variables / Contents / Workflows 的读写权限，且授权范围包含本仓库"); }
   if (r.status === 404 && opts.ok404) return null;
   if (!r.ok) { let t = ""; try { t = (await r.json()).message || ""; } catch {} throw new Error("HTTP " + r.status + (t ? "：" + t : "")); }
   if (r.status === 204) return null;
@@ -219,7 +230,7 @@ function setConn(on) {
   const b = document.getElementById("conn-badge");
   b.textContent = on ? "已连接 " + repo : "未连接";
   b.className = on ? "on" : "";
-  for (const id of ["sec-plat", "sec-sec", "sec-run", "sec-hist"])
+  for (const id of ["sec-plat", "sec-time", "sec-sec", "sec-run", "sec-hist"])
     document.getElementById(id).classList.toggle("hidden", !on);
   document.getElementById("btn-disconnect").style.display = on ? "" : "none";
 }
@@ -284,6 +295,59 @@ async function savePlatforms() {
     toast("已保存：下次运行起生效（" + value + "）", "ok");
     document.getElementById("plat-status").textContent = "当前生效：" + value;
   } catch (e) { toast("保存失败 " + e.message, "err"); }
+}
+
+/* ---------- 签到时间 ---------- */
+function wfPath() { return "/repos/" + repo + "/contents/.github/workflows/checkin.yml"; }
+function b64d(s) { const bin = atob(String(s).replace(/\s/g, "")); return new TextDecoder().decode(Uint8Array.from(bin, c => c.charCodeAt(0))); }
+function b64e(str) { const bytes = new TextEncoder().encode(str); let bin = ""; bytes.forEach(b => { bin += String.fromCharCode(b); }); return btoa(bin); }
+function shiftMin(h, m, delta) { const t = ((h * 60 + m + delta) % 1440 + 1440) % 1440; return { h: Math.floor(t / 60), m: t % 60 }; }
+function fmtHM(x) { return String(x.h).padStart(2, "0") + ":" + String(x.m).padStart(2, "0"); }
+function parseCrons(text) {
+  return [...text.matchAll(/^\s*-\s*cron:\s*"?(\d+)\s+(\d+)\s+\S+\s+\S+\s+\S+"?\s*$/gm)].map(x => ({ h: +x[2], m: +x[1] }));
+}
+async function loadSchedule() {
+  const cur = document.getElementById("cur-time"), st = document.getElementById("time-status");
+  try {
+    const f = await api(wfPath());
+    const crons = parseCrons(b64d(f.content));
+    if (!crons.length) { cur.textContent = "未识别到 cron 配置"; return; }
+    const s = fmtHM(shiftMin(crons[0].h, crons[0].m, 480));
+    cur.textContent = "每天 " + s + "（北京时间）";
+    document.getElementById("in-time").value = s;
+    st.textContent = "";
+  } catch (e) { cur.textContent = "读取失败"; st.textContent = e.message; }
+}
+async function saveSchedule() {
+  const v = document.getElementById("in-time").value;
+  const st = document.getElementById("time-status");
+  if (!/^\d{2}:\d{2}$/.test(v)) return toast("请选择一个时间", "err");
+  const [hh, mm] = v.split(":").map(Number);
+  const p = shiftMin(hh, mm, -480), b = shiftMin(hh, mm, -460);
+  const btn = document.getElementById("btn-save-time");
+  btn.disabled = true; st.textContent = "提交中…";
+  try {
+    const f = await api(wfPath());
+    const vals = [p.m + " " + p.h + " * * *", b.m + " " + b.h + " * * *"];
+    let n = 0;
+    const text = b64d(f.content).split("\n").map(line => {
+      const m = line.match(/^(\s*-\s*cron:\s*"?)(\d+\s+\d+\s+\S+\s+\S+\s+\S+)("?\s*)$/);
+      if (!m) return line;
+      return m[1] + vals[Math.min(n++, vals.length - 1)] + m[3];
+    }).join("\n");
+    if (!n) throw new Error("工作流文件里没找到 cron 行");
+    await api(wfPath(), { method: "PUT", body: JSON.stringify({
+      message: "chore: 签到时间调整为 " + v + "（北京时间）",
+      content: b64e(text), sha: f.sha, branch: "main",
+    })});
+    toast("已保存：每天 " + v + " 执行", "ok");
+    await loadSchedule();
+  } catch (e) {
+    const msg = String(e.message);
+    toast("保存失败 " + msg + (/403|workflow|无权限/.test(msg) ? "（改工作流文件需 token 勾选 Workflows 与 Contents 读写）" : ""), "err");
+    st.textContent = "";
+  }
+  btn.disabled = false;
 }
 
 /* ---------- Secrets ---------- */
@@ -412,11 +476,12 @@ function closeModal() { document.getElementById("modal-mask").classList.remove("
 document.getElementById("modal-mask").addEventListener("click", e => { if (e.target.id === "modal-mask") closeModal(); });
 
 /* ---------- 初始化 ---------- */
-function loadAll() { loadPlatforms(); loadSecrets(); loadRuns(); }
+function loadAll() { loadPlatforms(); loadSchedule(); loadSecrets(); loadRuns(); }
 document.getElementById("in-repo").value = repo;
 document.getElementById("btn-connect").onclick = connect;
 document.getElementById("btn-disconnect").onclick = disconnect;
 document.getElementById("btn-save-plat").onclick = savePlatforms;
+document.getElementById("btn-save-time").onclick = saveSchedule;
 document.getElementById("btn-run").onclick = runNow;
 document.getElementById("in-token").addEventListener("keydown", e => { if (e.key === "Enter") connect(); });
 
