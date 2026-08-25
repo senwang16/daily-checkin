@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>每日签到 · 云端管理面板</title>
+<style>
+:root {
+  --bg: #f5f6f8; --card: #fff; --border: #e3e6ea; --text: #1f2328;
+  --muted: #6b7280; --accent: #2563eb; --accent-hover: #1d4ed8;
+  --ok: #16a34a; --fail: #dc2626; --warn: #d97706; --radius: 10px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+.wrap { max-width: 860px; margin: 0 auto; padding: 24px 16px 60px; }
+header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
+header h1 { font-size: 22px; font-weight: 700; }
+header h1 span { color: var(--accent); }
+#conn-badge { font-size: 13px; padding: 4px 12px; border-radius: 999px; background: #fee2e2; color: var(--fail); font-weight: 600; }
+#conn-badge.on { background: #dcfce7; color: var(--ok); }
+.card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 16px; }
+.card h2 { font-size: 16px; margin-bottom: 4px; }
+.card .sub { font-size: 13px; color: var(--muted); margin-bottom: 14px; line-height: 1.6; }
+.row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+input[type=text], input[type=password], textarea {
+  border: 1px solid var(--border); border-radius: 8px; padding: 9px 12px; font-size: 14px;
+  font-family: inherit; width: 100%; background: #fafbfc; transition: border-color .15s;
+}
+input:focus, textarea:focus { outline: none; border-color: var(--accent); background: #fff; }
+button {
+  border: none; border-radius: 8px; padding: 9px 18px; font-size: 14px; font-weight: 600;
+  cursor: pointer; background: var(--accent); color: #fff; transition: background .15s; white-space: nowrap;
+}
+button:hover { background: var(--accent-hover); }
+button.ghost { background: #fff; color: var(--text); border: 1px solid var(--border); }
+button.ghost:hover { background: #f3f4f6; }
+button.small { padding: 5px 12px; font-size: 13px; }
+button:disabled { opacity: .55; cursor: not-allowed; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+@media (max-width: 640px) { .grid2 { grid-template-columns: 1fr; } }
+.plat-item { display: flex; align-items: center; gap: 12px; padding: 13px 16px; border: 1px solid var(--border); border-radius: 8px; cursor: pointer; transition: all .15s; background: #fafbfc; }
+.plat-item:hover { border-color: var(--accent); }
+.plat-item.on { background: #eff6ff; border-color: var(--accent); }
+.plat-item .sw { width: 40px; height: 22px; border-radius: 999px; background: #d1d5db; position: relative; transition: background .15s; flex-shrink: 0; }
+.plat-item .sw::after { content: ""; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: left .15s; }
+.plat-item.on .sw { background: var(--ok); }
+.plat-item.on .sw::after { left: 20px; }
+.plat-item .info b { font-size: 14px; display: block; }
+.plat-item .info i { font-size: 12px; color: var(--muted); font-style: normal; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th { text-align: left; color: var(--muted); font-weight: 600; font-size: 13px; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+td { padding: 10px; border-bottom: 1px solid #f0f2f4; vertical-align: middle; }
+tr:last-child td { border-bottom: none; }
+.badge { display: inline-block; font-size: 12px; padding: 2px 10px; border-radius: 999px; font-weight: 600; }
+.badge.ok { background: #dcfce7; color: var(--ok); }
+.badge.fail { background: #fee2e2; color: var(--fail); }
+.badge.muted { background: #f3f4f6; color: var(--muted); }
+.badge.warn { background: #fef3c7; color: var(--warn); }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+code { background: #f3f4f6; padding: 2px 6px; border-radius: 4px; font-size: 13px; }
+#toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 200; display: flex; flex-direction: column; gap: 8px; align-items: center; }
+.toast-msg { padding: 10px 20px; border-radius: 8px; color: #fff; font-size: 14px; box-shadow: 0 4px 16px rgba(0,0,0,.18); animation: fadeIn .2s; }
+.toast-msg.ok { background: var(--ok); } .toast-msg.err { background: var(--fail); } .toast-msg.info { background: #374151; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; } }
+#modal-mask { position: fixed; inset: 0; background: rgba(15,20,30,.5); z-index: 100; display: none; align-items: center; justify-content: center; padding: 16px; }
+#modal-mask.show { display: flex; }
+#modal { background: #fff; border-radius: 12px; width: 640px; max-width: 100%; max-height: 86vh; display: flex; flex-direction: column; }
+#modal .m-head { padding: 18px 22px 0; display: flex; justify-content: space-between; align-items: center; }
+#modal .m-head h3 { font-size: 16px; }
+#modal .m-body { padding: 14px 22px; overflow-y: auto; }
+#modal .m-foot { padding: 14px 22px 20px; display: flex; gap: 10px; justify-content: flex-end; }
+#modal .hint { font-size: 12.5px; color: var(--muted); line-height: 1.7; background: #f8fafc; border-radius: 6px; padding: 10px 12px; margin-bottom: 10px; }
+#modal pre { background: #0f172a; color: #e2e8f0; border-radius: 8px; padding: 14px; font-size: 12.5px; line-height: 1.7; overflow-x: auto; white-space: pre-wrap; word-break: break-all; }
+.spin { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.35); border-top-color: #fff; border-radius: 50%; animation: rot .7s linear infinite; vertical-align: -2px; margin-right: 6px; }
+@keyframes rot { to { transform: rotate(360deg); } }
+.hidden { display: none !important; }
+.tip { font-size: 12.5px; color: var(--muted); margin-top: 8px; line-height: 1.7; }
+</style>
+</head>
+<body>
+<div id="toast"></div>
+<div id="modal-mask"><div id="modal">
+  <div class="m-head"><h3 id="m-title"></h3><button class="ghost small" onclick="closeModal()">关闭</button></div>
+  <div class="m-body" id="m-body"></div>
+  <div class="m-foot" id="m-foot"></div>
+</div></div>
+
+<div class="wrap">
+  <header>
+    <h1>每日签到 <span>· 云端管理面板</span></h1>
+    <span id="conn-badge">未连接</span>
+  </header>
+
+  <!-- 连接 -->
+  <div class="card" id="sec-token">
+    <h2>连接 GitHub</h2>
+    <div class="sub">面板通过 GitHub API 直接读写仓库配置，所有操作在你自己的浏览器里完成，不经任何第三方服务器。</div>
+    <div class="grid2">
+      <input type="text" id="in-repo" placeholder="owner/repo">
+      <input type="password" id="in-token" placeholder="GitHub Token（fine-grained PAT）">
+    </div>
+    <div class="row" style="margin-top:12px">
+      <button id="btn-connect">保存并连接</button>
+      <button class="ghost" id="btn-disconnect" style="display:none">断开连接</button>
+      <span style="font-size:13px;color:var(--muted)">Token 只保存在本机浏览器 localStorage。</span>
+    </div>
+    <div class="tip">
+      推荐 <b>Fine-grained token</b>（github.com → Settings → Developer settings → Fine-grained tokens）：仅授权本仓库，权限勾
+      <code>Actions: Read and write</code>、<code>Secrets: Read and write</code>、<code>Variables: Read and write</code>，有效期设 90 天。
+    </div>
+  </div>
+
+  <!-- 平台开关 -->
+  <div class="card hidden" id="sec-plat">
+    <h2>自动签到平台</h2>
+    <div class="sub">开关写入仓库 Variable <code>CHECKIN_PLATFORMS</code>，每天北京时间 9:00 定时执行。至少开启一个。</div>
+    <div class="grid2" id="plat-list"></div>
+    <div class="row" style="margin-top:14px">
+      <button id="btn-save-plat">保存平台配置</button>
+      <span style="font-size:13px;color:var(--muted)" id="plat-status"></span>
+    </div>
+  </div>
+
+  <!-- 凭据 -->
+  <div class="card hidden" id="sec-sec">
+    <h2>签到凭据（Secrets）</h2>
+    <div class="sub">出于安全设计，已保存的值不可查看，只能覆盖更新。点「更新」填入新值即可（增删账号也是这样操作）。</div>
+    <div style="overflow-x:auto"><table>
+      <thead><tr><th>名称</th><th>说明</th><th>状态</th><th style="text-align:right">操作</th></tr></thead>
+      <tbody id="sec-tbody"><tr><td colspan="4" style="color:var(--muted)">加载中…</td></tr></tbody>
+    </table></div>
+  </div>
+
+  <!-- 运行 -->
+  <div class="card hidden" id="sec-run">
+    <h2>手动运行</h2>
+    <div class="sub">立即用当前配置触发一次签到（与每天 9:00 的定时任务同一套代码，签到幂等，重复跑无害）。</div>
+    <button id="btn-run"><span class="spin" id="run-spin" style="display:none"></span>立即签到</button>
+    <span style="font-size:13px;color:var(--muted);margin-left:10px" id="run-status"></span>
+  </div>
+
+  <!-- 历史 -->
+  <div class="card hidden" id="sec-hist">
+    <h2>运行历史 <button class="ghost small" style="margin-left:8px" onclick="loadRuns()">刷新</button></h2>
+    <div class="sub">最近 10 次运行。点「结果」查看本次签到明细（绿色 ✓ 成功 / 红色 ✗ 失败项）。</div>
+    <div style="overflow-x:auto"><table>
+      <thead><tr><th>时间（北京）</th><th>触发</th><th>状态</th><th style="text-align:right">操作</th></tr></thead>
+      <tbody id="hist-tbody"><tr><td colspan="4" style="color:var(--muted)">加载中…</td></tr></tbody>
+    </table></div>
+  </div>
+
+  <div style="text-align:center;color:var(--muted);font-size:12.5px;margin-top:24px;line-height:1.8">
+    成功静默 · 失败推送（Server酱微信 / 邮箱）<br>
+    平台面板仅作管理入口，凭据始终存于 GitHub Secrets，代码仓库不含任何个人信息
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/libsodium-wrappers@0.7.15/dist/browsers/sodium.js"
+        onerror="this.remove();document.write('<script src="https://unpkg.com/libsodium-wrappers@0.7.15/dist/browsers/sodium.js"><\/script>')"></script>
+<script>
+"use strict";
+const API = "https://api.github.com";
+const DEFAULT_REPO = "";
+const PLATFORMS = [
+  { id: "trae",      name: "Trae",         desc: "字节 Trae（多账号）" },
+  { id: "miyoushe",  name: "米游社·原神",   desc: "多账号，一行一个 Cookie" },
+  { id: "workbuddy", name: "WorkBuddy",    desc: "腾讯 CodeBuddy（多账号）" },
+];
+const SECRETS_META = [
+  { name: "TRAE_AUTH_JSON", label: "Trae 凭据 JSON", type: "textarea", rows: 8, required: "trae",
+    hint: "单对象 {…} 或多账号数组 [ {…}, {…} ]。本机运行 <code>daily-checkin.exe login</code> 后，把 %LOCALAPPDATA%\\daily-checkin\\auths\\ 下的内容拼进来。token 约 14 天过期，失败通知会提醒更新。" },
+  { name: "TRAE_AHA_ID", label: "Trae 设备指纹", type: "input", required: "trae",
+    hint: "所有 Trae 账号共用一个：取凭据 JSON 里的 device_id 字段。" },
+  { name: "MIYOUSHE_COOKIE", label: "米游社 Cookie", type: "textarea", rows: 5, required: "miyoushe",
+    hint: "多账号一行一个。浏览器无痕模式登录 miyoushe.com → F12 → Network → 复制任意请求的完整 Cookie。" },
+  { name: "WORKBUDDY_TOKEN", label: "WorkBuddy Token", type: "textarea", rows: 4, required: "workbuddy",
+    hint: "多账号一行一个。取 %LOCALAPPDATA%\\CodeBuddyExtension\\Data\\Public\\auth\\workbuddy-desktop.info 的 auth.accessToken（eyJ 开头长串）。约 60 天过期。" },
+  { name: "SERVERCHAN_KEY", label: "Server酱 SendKey", type: "input",
+    hint: "失败微信通知（推荐）。sct.ftqq.com 微信扫码获取。" },
+  { name: "SMTP_HOST", label: "SMTP 服务器", type: "input", opt: 1, hint: "如 smtp.qq.com（可选，邮件通知）" },
+  { name: "SMTP_PORT", label: "SMTP 端口", type: "input", opt: 1, hint: "如 465（可选）" },
+  { name: "SMTP_USER", label: "SMTP 发件邮箱", type: "input", opt: 1, hint: "（可选）" },
+  { name: "SMTP_PASS", label: "SMTP 授权码", type: "input", opt: 1, hint: "QQ 邮箱为授权码，非登录密码（可选）" },
+  { name: "SMTP_TO", label: "SMTP 收件邮箱", type: "input", opt: 1, hint: "（可选）" },
+];
+
+let repo = localStorage.getItem("dc_repo") || DEFAULT_REPO;
+let token = localStorage.getItem("dc_token") || "";
+let platState = { trae: true, miyoushe: true, workbuddy: true };
+let secretNames = {}; // name -> updated_at
+
+/* ---------- 基础 ---------- */
+function toast(msg, kind = "info") {
+  const d = document.createElement("div");
+  d.className = "toast-msg " + kind; d.textContent = msg;
+  document.getElementById("toast").appendChild(d);
+  setTimeout(() => d.remove(), 3200);
+}
+async function api(path, opts = {}) {
+  const r = await fetch(API + path, {
+    ...opts,
+    headers: {
+      "Authorization": "Bearer " + token,
+      "Accept": "application/vnd.github+json",
+      "Content-Type": "application/json",
+      "X-GitHub-Api-Version": "2022-11-28",
+      ...(opts.headers || {}),
+    },
+  });
+  if (r.status === 401) { setConn(false); throw new Error("Token 无效或已过期，请重新填写"); }
+  if (r.status === 403) { throw new Error("无权限（403）：请检查 fine-grained token 是否勾选了 Actions / Secrets / Variables 的读写权限，且授权范围包含本仓库"); }
+  if (r.status === 404 && opts.ok404) return null;
+  if (!r.ok) { let t = ""; try { t = (await r.json()).message || ""; } catch {} throw new Error("HTTP " + r.status + (t ? "：" + t : "")); }
+  if (r.status === 204) return null;
+  return r.json();
+}
+function setConn(on) {
+  const b = document.getElementById("conn-badge");
+  b.textContent = on ? "已连接 " + repo : "未连接";
+  b.className = on ? "on" : "";
+  for (const id of ["sec-plat", "sec-sec", "sec-run", "sec-hist"])
+    document.getElementById(id).classList.toggle("hidden", !on);
+  document.getElementById("btn-disconnect").style.display = on ? "" : "none";
+}
+function fmtTime(iso) {
+  const d = new Date(iso);
+  return d.toLocaleString("zh-CN", { timeZone: "Asia/Shanghai", hour12: false });
+}
+
+/* ---------- 连接 ---------- */
+async function connect() {
+  repo = (document.getElementById("in-repo").value || DEFAULT_REPO).trim();
+  token = document.getElementById("in-token").value.trim();
+  if (!token) return toast("请填写 Token", "err");
+  if (!/^[^\s/]+\/[^\s/]+$/.test(repo)) return toast("请填写仓库，格式 owner/repo", "err");
+  try {
+    await api("/user"); // 验证 token
+    localStorage.setItem("dc_repo", repo); localStorage.setItem("dc_token", token);
+    setConn(true); toast("连接成功", "ok");
+    loadAll();
+  } catch (e) { toast(e.message, "err"); }
+}
+function disconnect() {
+  localStorage.removeItem("dc_token"); token = ""; setConn(false);
+  document.getElementById("in-token").value = "";
+  toast("已断开并清除本机 Token", "ok");
+}
+
+/* ---------- 平台开关 ---------- */
+async function loadPlatforms() {
+  let v = null;
+  try { v = await api("/repos/" + repo + "/actions/variables/CHECKIN_PLATFORMS", { ok404: true }); }
+  catch (e) { v = null; }
+  const list = v && v.value ? v.value.split(",").map(s => s.trim().toLowerCase()).filter(Boolean) : ["trae", "miyoushe", "workbuddy"];
+  platState = { trae: false, miyoushe: false, workbuddy: false };
+  list.forEach(p => { if (p in platState) platState[p] = true; });
+  renderPlatforms();
+  document.getElementById("plat-status").textContent = v
+    ? "当前生效：" + (v.value || "（空，默认全部）")
+    : "当前生效：未配置 Variable，默认全部平台";
+}
+function renderPlatforms() {
+  const el = document.getElementById("plat-list"); el.innerHTML = "";
+  PLATFORMS.forEach(p => {
+    const d = document.createElement("div");
+    d.className = "plat-item" + (platState[p.id] ? " on" : "");
+    d.innerHTML = '<div class="sw"></div><div class="info"><b>' + p.name + '</b><i>' + p.desc + '</i></div>';
+    d.onclick = () => { platState[p.id] = !platState[p.id]; renderPlatforms(); };
+    el.appendChild(d);
+  });
+}
+async function savePlatforms() {
+  const on = PLATFORMS.filter(p => platState[p.id]).map(p => p.id);
+  if (!on.length) return toast("至少开启一个平台", "err");
+  const value = on.join(",");
+  const path = "/repos/" + repo + "/actions/variables/CHECKIN_PLATFORMS";
+  try {
+    const upd = await api(path, { method: "PUT", body: JSON.stringify({ name: "CHECKIN_PLATFORMS", value }) }).catch(async e => {
+      if (String(e.message).includes("404"))
+        return api("/repos/" + repo + "/actions/variables", { method: "POST", body: JSON.stringify({ name: "CHECKIN_PLATFORMS", value }) });
+      throw e;
+    });
+    toast("已保存：下次运行起生效（" + value + "）", "ok");
+    document.getElementById("plat-status").textContent = "当前生效：" + value;
+  } catch (e) { toast("保存失败 " + e.message, "err"); }
+}
+
+/* ---------- Secrets ---------- */
+async function loadSecrets() {
+  const tb = document.getElementById("sec-tbody");
+  try {
+    const data = await api("/repos/" + repo + "/actions/secrets?per_page=100");
+    secretNames = {};
+    (data.secrets || []).forEach(s => secretNames[s.name] = s.updated_at);
+    tb.innerHTML = SECRETS_META.map(m => {
+      const has = !!secretNames[m.name];
+      const badge = has
+        ? '<span class="badge ok">已配置</span><div style="font-size:11.5px;color:var(--muted);margin-top:3px">更新于 ' + fmtTime(secretNames[m.name]) + '</div>'
+        : '<span class="badge ' + (m.opt ? "muted" : "warn") + '">' + (m.opt ? "未配置（可选）" : "未配置") + "</span>";
+      return '<tr><td><code>' + m.name + '</code></td><td style="color:var(--muted)">' + m.label + "</td><td>" + badge
+        + '</td><td style="text-align:right"><button class="ghost small" onclick="editSecret(\'' + m.name + '\')">更新</button></td></tr>';
+    }).join("");
+  } catch (e) { tb.innerHTML = '<tr><td colspan="4" style="color:var(--fail)">' + e.message + "</td></tr>"; }
+}
+function editSecret(name) {
+  const m = SECRETS_META.find(x => x.name === name); if (!m) return;
+  openModal("更新 " + name, '<div class="hint">' + m.hint + "</div>"
+    + (m.type === "textarea"
+        ? '<textarea id="m-val" rows="' + (m.rows || 6) + '" placeholder="填入新值…"></textarea>'
+        : '<input type="text" id="m-val" placeholder="填入新值…">'),
+    [{ text: "保存", fn: async () => {
+        const v = document.getElementById("m-val").value.trim();
+        if (!v) return toast("值不能为空", "err");
+        if (m.name === "TRAE_AUTH_JSON") { try { JSON.parse(v); } catch { return toast("不是合法 JSON，请检查格式", "err"); } }
+        await putSecret(name, v);
+      } }]);
+}
+async function putSecret(name, value) {
+  try {
+    await loadSodium();
+    const key = await api("/repos/" + repo + "/actions/secrets/public-key");
+    const pk = sodium.from_base64(key.key, sodium.base64_variants.ORIGINAL);
+    const enc = sodium.crypto_box_seal(value, pk);
+    await api("/repos/" + repo + "/actions/secrets/" + name, {
+      method: "PUT",
+      body: JSON.stringify({ encrypted_value: sodium.to_base64(enc, sodium.base64_variants.ORIGINAL), key_id: key.key_id }),
+    });
+    toast(name + " 已更新", "ok"); closeModal(); loadSecrets();
+  } catch (e) { toast("更新失败 " + e.message, "err"); }
+}
+async function loadSodium() {
+  if (window.sodium && window.sodium.ready) { await sodium.ready; return; }
+  for (let i = 0; i < 50 && !(window.sodium && window.sodium.ready); i++)
+    await new Promise(r => setTimeout(r, 200));
+  if (!(window.sodium && window.sodium.ready)) throw new Error("加密库未加载：请检查网络（CDN: cdn.jsdelivr.net / unpkg.com）后刷新页面");
+  await sodium.ready;
+}
+
+/* ---------- 运行 ---------- */
+async function runNow() {
+  const btn = document.getElementById("btn-run");
+  document.getElementById("run-spin").style.display = "";
+  btn.disabled = true;
+  try {
+    await api("/repos/" + repo + "/actions/workflows/checkin.yml/dispatches", { method: "POST", body: JSON.stringify({ ref: "main" }) });
+    toast("已触发，约 1 分钟后出结果，可在下方历史查看", "ok");
+    document.getElementById("run-status").textContent = "已触发 " + new Date().toLocaleTimeString("zh-CN", { hour12: false });
+    setTimeout(loadRuns, 60000);
+  } catch (e) { toast("触发失败 " + e.message, "err"); }
+  btn.disabled = false; document.getElementById("run-spin").style.display = "none";
+}
+
+/* ---------- 历史 ---------- */
+async function loadRuns() {
+  const tb = document.getElementById("hist-tbody");
+  try {
+    const data = await api("/repos/" + repo + "/actions/runs?per_page=10");
+    const runs = data.workflow_runs || [];
+    if (!runs.length) { tb.innerHTML = '<tr><td colspan="4" style="color:var(--muted)">暂无运行记录</td></tr>'; return; }
+    tb.innerHTML = runs.map(r => {
+      let badge;
+      if (r.status !== "completed") badge = '<span class="badge warn">运行中</span>';
+      else if (r.conclusion === "success") badge = '<span class="badge ok">成功 ✓</span>';
+      else if (r.conclusion === "failure") badge = '<span class="badge fail">失败 ✗</span>';
+      else badge = '<span class="badge muted">' + (r.conclusion || "—") + "</span>";
+      const ev = r.event === "schedule" ? "定时" : r.event === "workflow_dispatch" ? "手动" : r.event;
+      return "<tr><td>" + fmtTime(r.created_at) + "</td><td>" + ev + "</td><td>" + badge
+        + '</td><td style="text-align:right"><button class="ghost small" onclick="viewResult(' + r.id + ')">结果</button> '
+        + '<a href="' + r.html_url + '" target="_blank" style="font-size:13px">日志↗</a></td></tr>';
+    }).join("");
+  } catch (e) { tb.innerHTML = '<tr><td colspan="4" style="color:var(--fail)">' + e.message + "</td></tr>"; }
+}
+async function viewResult(runId) {
+  openModal("运行结果", '<pre>加载中…</pre>', []);
+  try {
+    const jobs = await api("/repos/" + repo + "/actions/runs/" + runId + "/jobs");
+    const job = (jobs.jobs || [])[0];
+    if (!job) throw new Error("找不到作业");
+    let text = "";
+    try {
+      const lr = await fetch(API + "/repos/" + repo + "/actions/jobs/" + job.id + "/logs",
+        { headers: { "Authorization": "Bearer " + token, "X-GitHub-Api-Version": "2022-11-28" }, redirect: "follow" });
+      text = await lr.text();
+    } catch (e) { text = ""; }
+    let lines = text.split("\n").filter(l => /\[OK|\[FAIL|====|签到成功|失败/.test(l))
+      .map(l => l.replace(/^\d{4}-\d{2}-\d{2}T[\d:.]+Z\s*/, "").trim()).filter(Boolean);
+    if (!lines.length) lines = ["（无法读取日志明细，请点右上「日志↗」到 GitHub 查看）"];
+    document.getElementById("m-body").innerHTML = "<pre>" + lines.join("\n").replace(/</g, "&lt;") + "</pre>";
+  } catch (e) {
+    document.getElementById("m-body").innerHTML = '<pre style="background:#fee2e2;color:#991b1b">' + e.message + "</pre>";
+  }
+}
+
+/* ---------- Modal ---------- */
+function openModal(title, bodyHtml, buttons) {
+  document.getElementById("m-title").textContent = title;
+  document.getElementById("m-body").innerHTML = bodyHtml;
+  const f = document.getElementById("m-foot"); f.innerHTML = "";
+  (buttons || []).forEach(b => {
+    const btn = document.createElement("button");
+    btn.textContent = b.text;
+    if (b.ghost) btn.className = "ghost";
+    btn.onclick = () => b.fn();
+    f.appendChild(btn);
+  });
+  const close = document.createElement("button"); close.className = "ghost"; close.textContent = "取消/关闭";
+  close.onclick = closeModal; f.appendChild(close);
+  document.getElementById("modal-mask").classList.add("show");
+}
+function closeModal() { document.getElementById("modal-mask").classList.remove("show"); }
+document.getElementById("modal-mask").addEventListener("click", e => { if (e.target.id === "modal-mask") closeModal(); });
+
+/* ---------- 初始化 ---------- */
+function loadAll() { loadPlatforms(); loadSecrets(); loadRuns(); }
+document.getElementById("in-repo").value = repo;
+document.getElementById("btn-connect").onclick = connect;
+document.getElementById("btn-disconnect").onclick = disconnect;
+document.getElementById("btn-save-plat").onclick = savePlatforms;
+document.getElementById("btn-run").onclick = runNow;
+document.getElementById("in-token").addEventListener("keydown", e => { if (e.key === "Enter") connect(); });
+
+if (token) { setConn(true); loadAll(); }
+</script>
+</body>
+</html>

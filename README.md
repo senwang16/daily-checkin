@@ -118,6 +118,19 @@ daily-checkin.exe install --platforms=trae,workbuddy,miyoushe --time=10:00
 实现 `platform.Platform` 接口（`Name` / `DisplayName` / `Detect` / `Checkin`），在 `platform/init()` 注册即可。
 新增平台完全独立，不影响其他逻辑。
 
+## 云端版与网页管理面板
+
+不想开机挂着本地工具？配套有 **云端版**（GitHub Actions 定时签到，成功静默、失败微信/邮件通知），云端版自带一个**网页管理面板**：
+
+- 在线开关签到平台、更新账号凭据（Secrets 加密写入）
+- 一键手动签到、查看每次运行的成败明细
+
+面板在线地址（无需下载，浏览器收藏即可）：**https://senwang16.github.io/daily-checkin/panel.html**
+
+打开后填入你部署云端版的 `owner/repo` 和一个最小权限的 GitHub Token（Fine-grained，勾 `Actions` / `Secrets` / `Variables` 三项读写）即可管理。面板是纯静态页面，所有请求直连 GitHub API，不经任何第三方服务器，Token 只存本机浏览器。
+
+> 云端版为私有项目，不在此仓库发布；本地工具凭据可用 `daily-checkin.exe export` 导出后粘贴到云端 Secrets。
+
 ## 安全
 
 - 所有 token / Cookie 仅存储于本机（`%LOCALAPPDATA%\daily-checkin\`），不会上传到任何服务器
