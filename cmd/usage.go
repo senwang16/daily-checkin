@@ -11,6 +11,7 @@ func PrintUsage() {
 	fmt.Println("  daily-checkin.exe run --daemon  常驻进程，按配置时间定时签到")
 	fmt.Println("  daily-checkin.exe status     查看安装与登录状态")
 	fmt.Println("  daily-checkin.exe login      登录 Trae，生成签到凭证（浏览器手机号/验证码）")
+        fmt.Println("  daily-checkin.exe login --new-device   用独立设备身份登录（登录第 2 个及以上账号时用，避免互踢）")
 	fmt.Println("  daily-checkin.exe miyoushe   配置米游社 Cookie（原神签到，浏览器抓取）")
 	fmt.Println("  daily-checkin.exe creds      凭据管理面板（查看/更新/删除所有凭据）")
 	fmt.Println("  daily-checkin.exe notify     配置强通知（Server酱微信 / SMTP 邮箱）")

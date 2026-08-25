@@ -19,25 +19,35 @@ import (
 // Login 交互式登录，生成 trae_auth.json（移植自旧 trae_login.py）
 // 流程：生成 machine_id/device_id -> 构造登录链接 -> 浏览器手机号/验证码登录
 // -> 粘贴回调链接 -> ExchangeToken 换 access token -> GetUserInfo 拿 uid -> 落盘
-func Login() bool {
+// newDevice=true 时用全新随机设备身份登录（多账号必需：Trae 同设备 ID 新登录会
+// 吊销该设备上其他账号的会话，互踢；每账号独立设备身份可共存）
+func Login(newDevice bool) bool {
 	sep := strings.Repeat("=", 60)
 	fmt.Println(sep)
 	fmt.Println("  TRAE Work(SOLO) 登录 - 生成签到凭证")
 	fmt.Println(sep)
 	fmt.Println()
 
-	// 复用本机真实设备身份（machineid + 日志里的 aha 设备 ID），
-	// 避免随机 device_id 被服务端当成新设备、触发多端登录限制；取不到时回退随机。
-	machineID := extract.FindTraeMachineID()
-	deviceID := ""
-	if id, e := extract.FindAhaDeviceID(); e == nil {
-		deviceID = id
-	}
-	if machineID == "" {
+	// 设备身份：默认复用本机真实身份（machineid + 日志里的 aha 设备 ID），
+	// 避免随机 device_id 被服务端当成新设备、触发多端登录限制；
+	// --new-device 时生成全新随机身份：多账号场景下每个账号独立设备，避免同设备互踢。
+	var machineID, deviceID string
+	if newDevice {
 		machineID = randHex(16)
-	}
-	if deviceID == "" {
-		deviceID = machineID
+		deviceID = randHex(8)
+		fmt.Println("[*] 使用独立设备身份登录（与其他账号互不影响）")
+	} else {
+		machineID = extract.FindTraeMachineID()
+		if id, e := extract.FindAhaDeviceID(); e == nil {
+			deviceID = id
+		}
+		if machineID == "" {
+			machineID = randHex(16)
+		}
+		if deviceID == "" {
+			deviceID = machineID
+		}
+		fmt.Printf("[*] 使用本机真实设备身份登录（machine_id=%s device_id=%s）\n", machineID, deviceID)
 	}
 	loginURL := buildLoginURL(machineID, deviceID)
 
@@ -50,9 +60,6 @@ func Login() bool {
 	fmt.Println()
 	fmt.Println("  " + loginURL)
 	fmt.Println()
-	if machineID != "" && deviceID != "" {
-		fmt.Printf("[*] 使用本机真实设备身份登录（machine_id=%s device_id=%s）\n", machineID, deviceID)
-	}
 	openBrowser(loginURL)
 
 	reader := bufio.NewReader(os.Stdin)
@@ -153,7 +160,8 @@ func Login() bool {
 	fmt.Println(sep)
 	fmt.Printf("  登录成功，凭证已保存到 %%LOCALAPPDATA%%\\daily-checkin\\auths\\trae-%s.json\n", uid)
 	fmt.Printf("  用户: %s (uid: %s)\n", nickname, uid)
-	fmt.Println("  多账号：再次运行 daily-checkin.exe login 登录另一个号即可，会自动并存")
+	fmt.Println("  多账号：再次运行 daily-checkin.exe login --new-device 登录另一个号")
+	fmt.Println("          （--new-device 用独立设备身份，避免同设备登录互踢已有账号）")
 	fmt.Println("  接下来运行 daily-checkin.exe install 即可设置自动签到")
 	fmt.Println(sep)
 	return true

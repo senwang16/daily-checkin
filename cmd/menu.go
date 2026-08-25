@@ -30,7 +30,7 @@ func Menu() {
 		case "4":
 			Creds()
 		case "5":
-			Login()
+			Login(false)
 			pauseMenu(reader)
 		case "6":
 			Miyoushe()

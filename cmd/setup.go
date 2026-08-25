@@ -30,7 +30,7 @@ func Setup() bool {
 	if !traeOK {
 		fmt.Println("检测到 Trae 未登录，无法自动签到。")
 		if yesNo(reader, "是否现在登录 Trae（将打开浏览器）", true) {
-			if Login() {
+			if Login(false) {
 				traeOK = platform.Trae{}.Detect()
 			} else {
 				fmt.Println("登录未完成，本次跳过 Trae 启用。")

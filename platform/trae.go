@@ -2,6 +2,7 @@ package platform
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"daily-checkin/extract"
 	"daily-checkin/internal"
@@ -46,12 +47,13 @@ func (Trae) Checkin() *internal.CheckinError {
 		return internal.NewCheckinError(internal.E001CredNotFound, "Trae",
 			"未找到 Trae 登录凭据，请运行 daily-checkin.exe login 登录")
 	}
-	// 设备指纹：全账号共用本机真实 aha ID（同一台电脑），避免共享/随机指纹触发 9074
-	devID := ""
+	// 设备指纹：优先用各账号凭据里配套的 device_id（登录时绑定的，多账号各不相同），
+	// 凭据缺失时回退本机真实 aha ID；token 与 device_id 绑定，签到请求必须用登录时那一个。
+	commonDevID := ""
 	if realID, e := extract.FindAhaDeviceID(); e == nil && realID != "" {
-		devID = realID
+		commonDevID = realID
 	}
-	if devID == "" {
+	if commonDevID == "" {
 		return internal.NewCheckinError(internal.E001CredNotFound, "Trae",
 			"未找到本机 aha 设备指纹，请确认已安装并登录 Trae 桌面端（或手动设置 TRAE_AHA_ID 环境变量）")
 	}
@@ -62,6 +64,10 @@ func (Trae) Checkin() *internal.CheckinError {
 		name := auth.Nickname
 		if name == "" {
 			name = auth.UID
+		}
+		devID := auth.DeviceID
+		if devID == "" {
+			devID = commonDevID
 		}
 		if ce := checkinOneTrae(client, auth, devID); ce != nil {
 			fails = append(fails, name+": "+ce.UserMessage())
@@ -115,6 +121,16 @@ func checkinOneTrae(client *internal.HTTPClient, auth *extract.TraeAuth, devID s
 	checked, _ := resp["checked_in"].(bool)
 	if checked {
 		return nil
+	}
+	// 状态接口非零业务码（如 1001 认证失败）：token 已被服务端吊销
+	// （常见于同设备 ID 登录其他账号被互踢，或 token 过期），
+	// 不能只看 enable=false 就当成功，否则失效会被误报为"活动未开启"。
+	if rc := int(toFloat(resp["code"])); rc != 0 {
+		msg := bizMsg(resp)
+		if len(msg) > 60 {
+			msg = msg[:60]
+		}
+		return internal.NewCheckinError(internal.E002TokenExpired, "Trae", fmt.Sprintf("token 已失效（状态接口 code=%d %s），请重新 login", rc, msg))
 	}
 	if enable, _ := resp["enable"].(bool); enable == false {
 		return nil

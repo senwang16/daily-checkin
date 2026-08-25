@@ -22,28 +22,33 @@ func ExportSecrets() {
 	}
 	fmt.Println()
 
-	trae, terr := extract.LoadTraeAuth()
+	traeAuths := extract.LoadTraeAuths()
 
-	aha, aerr := extract.FindAhaDeviceID()
+	var aha string
+	var aerr error
+	aha, aerr = extract.FindAhaDeviceID()
 	if aerr != nil {
-		// 回退：用 trae_auth.json 里的 device_id（通常就是真实 aha 设备 ID）
-		if trae != nil && trae.DeviceID != "" {
-			aha = trae.DeviceID
-			aerr = nil
+		// 回退：用任一账号的 device_id（通常就是真实 aha 设备 ID，多账号共用）
+		for _, a := range traeAuths {
+			if a.DeviceID != "" {
+				aha = a.DeviceID
+				aerr = nil
+				break
+			}
 		}
 	}
 	if aerr != nil {
-		fmt.Println("# TRAE_AHA_ID：未找到（请确认本机安装并启动过 Trae App，或 trae_auth.json 含 device_id）")
+		fmt.Println("# TRAE_AHA_ID：未找到（请确认本机安装并启动过 Trae App，或任一账号凭据含 device_id）")
 	} else {
 		fmt.Printf("TRAE_AHA_ID=%s\n", aha)
 	}
 	fmt.Println()
 
-	if terr != nil {
-		fmt.Println("# TRAE_AUTH_JSON：未找到（请将旧项目 auth.json 放到 %LOCALAPPDATA%\\daily-checkin\\trae_auth.json）")
+	if len(traeAuths) == 0 {
+		fmt.Println("# TRAE_AUTH_JSON：未找到（请先运行 daily-checkin.exe login 登录至少一个 Trae 账号）")
 	} else {
-		fmt.Println("# TRAE_AUTH_JSON（整个 JSON 作为 secret 值，可多行）：")
-		data, _ := json.MarshalIndent(trae, "", "  ")
+		fmt.Printf("# TRAE_AUTH_JSON（整个 JSON 作为 secret 值，可多行，已含全部 %d 个账号）：\n", len(traeAuths))
+		data, _ := json.MarshalIndent(traeAuths, "", "  ")
 		fmt.Printf("TRAE_AUTH_JSON=%s\n", string(data))
 	}
 	fmt.Println()

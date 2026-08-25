@@ -132,7 +132,7 @@ func reconfigCred(item credItem) {
 	switch item.Platform {
 	case "trae":
 		fmt.Println("正在为 Trae 账号「" + item.Label + "」重新登录...")
-		if Login() {
+		if Login(false) {
 			fmt.Println("✅ 重新登录成功")
 		}
 	case "miyoushe":

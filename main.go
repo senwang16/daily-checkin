@@ -35,7 +35,14 @@ func main() {
 		cmd.Status()
 	case "login":
 		// 交互式登录，生成 trae_auth.json（浏览器手机号/验证码）
-		if !cmd.Login() {
+		// --new-device：用独立随机设备身份登录（多账号必需，避免同设备互踢）
+		newDevice := false
+		for _, a := range args[1:] {
+			if a == "--new-device" {
+				newDevice = true
+			}
+		}
+		if !cmd.Login(newDevice) {
 			os.Exit(1)
 		}
 	case "miyoushe":
