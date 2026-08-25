@@ -331,7 +331,7 @@ async function saveSchedule() {
     const vals = [p.m + " " + p.h + " * * *", b.m + " " + b.h + " * * *"];
     let n = 0;
     const text = b64d(f.content).split("\n").map(line => {
-      const m = line.match(/^(\s*-\s*cron:\s*"?)(\d+\s+\d+\s+\S+\s+\S+\s+\S+)("?\s*)$/);
+      const m = line.match(/^(\s*-\s*cron:\s*"?)(\d+\s+\d+\s+[^"\s]+\s+[^"\s]+\s+[^"\s]+)("?\s*)$/);
       if (!m) return line;
       return m[1] + vals[Math.min(n++, vals.length - 1)] + m[3];
     }).join("\n");
