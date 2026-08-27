@@ -1,0 +1,58 @@
+name: Trigger Cloud Checkin
+
+# 云端签到仓库（私有）的 GitHub schedule 长期静默不触发（连续多日），
+# 改由本公开仓库的定时任务负责检查并补触发：公开仓库 schedule 不消耗
+# Actions 免费额度、可靠性更高。北京时间 7:35 / 7:55（UTC 前一日 23:35/23:55），
+# 与私有仓库自身的 7:30/7:50 定时互为备份；签到接口幂等，重复触发无害。
+
+on:
+  schedule:
+    - cron: "35 23 * * *"
+    - cron: "55 23 * * *"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "true = 跳过「今日已运行」检查，强制触发"
+        default: "false"
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check and trigger cloud checkin
+        env:
+          TOKEN: ${{ secrets.CLOUD_TRIGGER_TOKEN }}
+          FORCE: ${{ github.event.inputs.force }}
+        run: |
+          set -e
+          API="https://api.github.com/repos/senwang16/daily-checkin-cloud/actions/workflows/checkin.yml"
+          AUTH="Authorization: Bearer $TOKEN"
+
+          # 北京时间今日 0 点 = UTC 昨日 16:00
+          now=$(date -u +%s)
+          today16=$(date -u -d 'today 16:00' +%s)
+          if [ "$now" -ge "$today16" ]; then
+            cutoff=$(date -u -d 'today 16:00' +%Y-%m-%dT%H:%M:%SZ)
+          else
+            cutoff=$(date -u -d 'yesterday 16:00' +%Y-%m-%dT%H:%M:%SZ)
+          fi
+
+          if [ "$FORCE" != "true" ]; then
+            ran=$(curl -sS -H "$AUTH" "$API/runs?per_page=20" \
+              | jq -r '.workflow_runs[].created_at' \
+              | awk -v c="$cutoff" '$0 >= c' | head -1)
+            if [ -n "$ran" ]; then
+              echo "云端今日已有运行（$ran），无需触发"
+              exit 0
+            fi
+          fi
+
+          echo "触发云端签到（force=$FORCE）..."
+          code=$(curl -sS -o /tmp/resp.json -w '%{http_code}' -X POST \
+            -H "$AUTH" -H "Accept: application/vnd.github+json" \
+            "$API/dispatches" -d '{"ref":"main"}')
+          if [ "$code" != "204" ]; then
+            echo "dispatch 失败 HTTP $code"; cat /tmp/resp.json; exit 1
+          fi
+          echo "已触发云端签到（HTTP 204）"
