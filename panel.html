@@ -114,7 +114,7 @@ code { background: #f3f4f6; padding: 2px 6px; border-radius: 4px; font-size: 13p
   <!-- 平台开关 -->
   <div class="card hidden" id="sec-plat">
     <h2>自动签到平台</h2>
-    <div class="sub">开关写入仓库 Variable <code>CHECKIN_PLATFORMS</code>，每天北京时间 9:00 定时执行。至少开启一个。</div>
+    <div class="sub">开关写入仓库 Variable <code>CHECKIN_PLATFORMS</code>，每天北京时间 12:00 定时执行。至少开启一个。</div>
     <div class="grid2" id="plat-list"></div>
     <div class="row" style="margin-top:14px">
       <button id="btn-save-plat">保存平台配置</button>
@@ -174,9 +174,12 @@ code { background: #f3f4f6; padding: 2px 6px; border-radius: 4px; font-size: 13p
 const API = "https://api.github.com";
 const DEFAULT_REPO = "";
 const PLATFORMS = [
-  { id: "trae",      name: "Trae",         desc: "字节 Trae（多账号）" },
-  { id: "miyoushe",  name: "米游社·原神",   desc: "多账号，一行一个 Cookie" },
-  { id: "workbuddy", name: "WorkBuddy",    desc: "腾讯 CodeBuddy（多账号）" },
+  { id: "trae",       name: "Trae",         desc: "字节 Trae（多账号）" },
+  { id: "miyoushe",   name: "米游社·原神",   desc: "多账号，一行一个 Cookie" },
+  { id: "workbuddy",  name: "WorkBuddy",    desc: "腾讯 CodeBuddy（多账号）" },
+  { id: "qoder",      name: "Qoder 国内版",  desc: "阿里 AI IDE（多账号）" },
+  { id: "qoder_intl", name: "Qoder 国际版",  desc: "qoder.com，每日 100 Credits" },
+  { id: "huawei",     name: "华为云码道",    desc: "CodeArts 每日签到（OAuth 凭据）" },
 ];
 const SECRETS_META = [
   { name: "TRAE_AUTH_JSON", label: "Trae 凭据 JSON", type: "textarea", rows: 8, required: "trae",
@@ -198,7 +201,7 @@ const SECRETS_META = [
 
 let repo = localStorage.getItem("dc_repo") || DEFAULT_REPO;
 let token = localStorage.getItem("dc_token") || "";
-let platState = { trae: true, miyoushe: true, workbuddy: true };
+let platState = Object.fromEntries(PLATFORMS.map(p => [p.id, true]));
 let secretNames = {}; // name -> updated_at
 
 /* ---------- 基础 ---------- */
@@ -263,8 +266,8 @@ async function loadPlatforms() {
   let v = null;
   try { v = await api("/repos/" + repo + "/actions/variables/CHECKIN_PLATFORMS", { ok404: true }); }
   catch (e) { v = null; }
-  const list = v && v.value ? v.value.split(",").map(s => s.trim().toLowerCase()).filter(Boolean) : ["trae", "miyoushe", "workbuddy"];
-  platState = { trae: false, miyoushe: false, workbuddy: false };
+  const list = v && v.value ? v.value.split(",").map(s => s.trim().toLowerCase()).filter(Boolean) : PLATFORMS.map(p => p.id);
+  platState = Object.fromEntries(PLATFORMS.map(p => [p.id, false]));
   list.forEach(p => { if (p in platState) platState[p] = true; });
   renderPlatforms();
   document.getElementById("plat-status").textContent = v
