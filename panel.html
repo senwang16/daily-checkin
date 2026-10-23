@@ -114,7 +114,7 @@ code { background: #f3f4f6; padding: 2px 6px; border-radius: 4px; font-size: 13p
   <!-- 平台开关 -->
   <div class="card hidden" id="sec-plat">
     <h2>自动签到平台</h2>
-    <div class="sub">开关写入仓库 Variable <code>CHECKIN_PLATFORMS</code>，每天北京时间 12:00 定时执行。至少开启一个。</div>
+    <div class="sub">开关写入仓库 Variable <code>CHECKIN_PLATFORMS</code>，每天北京时间 10:10 起定时执行。至少开启一个。</div>
     <div class="grid2" id="plat-list"></div>
     <div class="row" style="margin-top:14px">
       <button id="btn-save-plat">保存平台配置</button>
@@ -146,7 +146,7 @@ code { background: #f3f4f6; padding: 2px 6px; border-radius: 4px; font-size: 13p
   <!-- 运行 -->
   <div class="card hidden" id="sec-run">
     <h2>手动运行</h2>
-    <div class="sub">立即用当前配置触发一次签到（与每天 9:00 的定时任务同一套代码，签到幂等，重复跑无害）。</div>
+    <div class="sub">立即用当前配置触发一次签到（与每天 10:10 的定时任务同一套代码，签到幂等，重复跑无害）。</div>
     <button id="btn-run"><span class="spin" id="run-spin" style="display:none"></span>立即签到</button>
     <span style="font-size:13px;color:var(--muted);margin-left:10px" id="run-status"></span>
   </div>
